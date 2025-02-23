@@ -2,7 +2,7 @@
 <html lang="en">
 	{% load static %}
     <head>
-        <title>Sign Up | Event Calendar</title>
+        <title>Регистрация  | Бронирование столов</title>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
 
@@ -20,7 +20,7 @@
                         <div class="wrap d-md-flex">
                             <div class="text-wrap p-4 p-lg-5 d-flex img" style="background-image: url({% static 'images/bg.jpg' %});">
                                 <div class="text w-100">
-                                    <h2 class="mb-4">Event Calendar</h2>
+                                    <h2 class="mb-4">Расписание брони</h2>
                                     <!-- <p>Far far away, behind the word mountains, far from the countries Vokalia and Consonantia, there live the blind texts.</p> -->
                                 </div>
                             </div>
@@ -43,21 +43,21 @@
                                             <div class="row">
                                                 <div class="col-md-12">
                                                     <div class="form-group">
-                                                        <label class="label" for="email">Email Address</label>
+                                                        <label class="label" for="email">Ваш Email</label>
                                                         {{ form.email }}
                                                         <span class="text-danger">{{ form.errors.email }}</span>
                                                     </div>
                                                 </div>
                                                 <div class="col-md-12">
                                                     <div class="form-group">
-                                                        <label class="label" for="password">Password</label>
+                                                        <label class="label" for="password">Пароль</label>
                                                         {{ form.password1 }}
                                                         <span class="text-danger">{{ form.errors.password1 }}</span>
                                                     </div>
                                                 </div>
                                                 <div class="col-md-12">
                                                     <div class="form-group">
-                                                        <label class="label" for="password">Password</label>
+                                                        <label class="label" for="password">Повторите пароль</label>
                                                         {{ form.password2 }}
                                                         <span class="text-danger">{{ form.errors.password2 }}</span>
                                                     </div>
@@ -66,7 +66,7 @@
                                                     <div class="form-group">
                                                         <div class="w-100">
                                                             <label class="checkbox-wrap checkbox-primary">
-                                                                I agree all statements in terms of service
+                                                                Я соглашаюсь с политикой конфиденциальности и условиями обработки информации
                                                                 <input type="checkbox" checked />
                                                                 <span class="checkmark"></span>
                                                             </label>
@@ -75,13 +75,13 @@
                                                 </div>
                                                 <div class="col-md-12">
                                                     <div class="form-group">
-                                                        <button type="submit" class="btn btn-primary">Create an account</button>
+                                                        <button type="submit" class="btn btn-primary">Создать аккаунт</button>
                                                     </div>
                                                 </div>
                                             </div>
                                         </form>
                                         <div class="w-100">
-                                            <p class="mt-4">I'm already a member! <a href="{% url 'accounts:signin' %}">Sign In</a></p>
+                                            <p class="mt-4">Я уже зарегистрирован <a href="{% url 'accounts:signin' %}">Вход</a></p>
                                         </div>
                                     </div>
                                 </div>

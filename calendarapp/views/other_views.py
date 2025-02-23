@@ -140,8 +140,10 @@ class CalendarViewNew(LoginRequiredMixin, generic.View):
         if forms.is_valid():
             form = forms.save(commit=False)
             form.user = request.user
+            print(f"Saving event: {form.title}, {form.start_time}")  # 🔹 Проверка
             form.save()
             return redirect("calendarapp:calendar")
+        print("Form is not valid:", forms.errors)  # 🔹 Если форма не проходит
         context = {"form": forms}
         return render(request, self.template_name, context)
 
