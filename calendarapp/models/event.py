@@ -1,4 +1,6 @@
 from datetime import datetime
+
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.urls import reverse
 
@@ -53,6 +55,8 @@ class Event(EventAbstract):
     end_time = models.DateTimeField()
     cost=models.IntegerField(default=300)
     objects = EventManager()
+    table_number=models.IntegerField(validators=[MinValueValidator(1),
+                                  MaxValueValidator(4)])
 
     def __str__(self):
         return self.title

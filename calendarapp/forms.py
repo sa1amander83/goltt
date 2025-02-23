@@ -16,6 +16,7 @@ class EventForm(ModelForm):
                 attrs={
                     "class": "form-control",
                     "placeholder": "Примечание или пожелание",
+                    "rows": 3,
                 }
             ),
             "start_time": DateInput(
@@ -26,6 +27,11 @@ class EventForm(ModelForm):
                 attrs={"type": "datetime-local", "class": "form-control"},
                 format="%Y-%m-%dT%H:%M",
             ),
+
+
+
+
+
         }
         exclude = ["user"]
 
