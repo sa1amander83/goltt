@@ -369,36 +369,39 @@
                 });
             }
         });
-     document.addEventListener("DOMContentLoaded", function () {
+   document.addEventListener("DOMContentLoaded", function () {
     let selectedTables = new Set();
-    let totalCost = 0;
+    let totalCost = parseFloat(document.querySelector("#total-cost").textContent) || 0;
 
     document.querySelectorAll(".table-button").forEach(button => {
         button.addEventListener("click", function () {
-            let tableId = this.getAttribute("data-table-id");
-            let tablePrice = parseFloat(this.getAttribute("data-table-price"));
+            let tableId = this.dataset.tableId; 
+            let tablePrice = parseFloat(this.dataset.tablePrice);
 
             if (selectedTables.has(tableId)) {
-                // Если стол уже выбран — убираем его
+                // Убираем стол из выбора
                 selectedTables.delete(tableId);
                 this.classList.remove("btn-primary");
                 this.classList.add("btn-outline-primary");
                 totalCost -= tablePrice;
             } else {
-                // Если стол НЕ выбран — добавляем
+                // Добавляем стол в выбор
                 selectedTables.add(tableId);
                 this.classList.add("btn-primary");
                 this.classList.remove("btn-outline-primary");
                 totalCost += tablePrice;
             }
 
-            // Обновляем скрытое поле с ID столов
-            document.querySelector("#selected-tables").value = Array.from(selectedTables).join(",");
-            // Обновляем сумму
-            document.querySelector("#total-cost").textContent = totalCost;
+            // Обновляем скрытое поле формы (чтобы передавался список, а не строка)
+            let hiddenInput = document.querySelector("#selected-tables");
+            hiddenInput.value = [...selectedTables]; // Передаём массив значений
+
+            // Обновляем стоимость
+            document.querySelector("#total-cost").textContent = totalCost.toFixed(2);
         });
     });
 });
+
 
 
     </script>

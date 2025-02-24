@@ -148,9 +148,15 @@ class CalendarViewNew(LoginRequiredMixin, generic.View):
 
             form.save()
             table_ids = request.POST.get("tables", "").split(",")
+
+            # ✅ Убедимся, что все ID - это числа
+            table_ids = [int(tid) for tid in table_ids if tid.isdigit()]
+
+            # ✅ Назначаем ManyToMany связь
             form.tables.set(table_ids)
             return redirect("calendarapp:calendar")
         print("POST data:", request.POST)
+
         print("Form is not valid:", forms.errors)  # 🔹 Если форма не проходит
         context = {"form": forms}
         return render(request, self.template_name, context)
