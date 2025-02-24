@@ -1,12 +1,20 @@
-from django.forms import ModelForm, DateInput
+from django.forms import ModelForm, DateInput, ModelMultipleChoiceField
 from calendarapp.models import Event, EventMember
 from django import forms
 
+from calendarapp.models.event import Tables
+from django.forms.widgets import CheckboxSelectMultiple
 
 class EventForm(ModelForm):
+    tables = forms.ModelMultipleChoiceField(
+        queryset=Tables.objects.all(),
+        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
+        required=True
+    )
+
     class Meta:
         model = Event
-        fields = ["title", "description", "start_time", "end_time"]
+        fields = ["title", "description", "start_time", "end_time", 'tables']
         # datetime-local is a HTML5 input type
         widgets = {
             "title": forms.TextInput(
@@ -27,8 +35,6 @@ class EventForm(ModelForm):
                 attrs={"type": "datetime-local", "class": "form-control"},
                 format="%Y-%m-%dT%H:%M",
             ),
-
-
 
 
 

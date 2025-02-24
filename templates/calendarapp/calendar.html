@@ -74,13 +74,25 @@
                                         {{ form.end_time }}
                                     </div>
 
-                                    <div class="table-grid">
-                                        {% for table in tables %}
-                                            <div class="table-cell">
-                                                <span>{{ table.number }}</span>
-                                            </div>
-                                        {% endfor %}
+                                    <div class="form-group">
+                                        <label for="tables" class="col-form-label">Выберите стол:</label>
+                                        <div id="table-buttons">
+                                            {% for table in tables %}
+                                                <button type="button"
+                                                        class="btn btn-outline-primary table-button"
+                                                        data-table-id="{{ table.id }}"
+                                                        data-table-price="{{ table.price_per_hour }}">
+                                                    {{ table.number }}
+                                                </button>
+                                            {% endfor %}
+                                        </div>
                                     </div>
+
+                                    <div class="form-group">
+                                        <label for="total-cost" class="col-form-label">Итоговая сумма:</label>
+                                        <p id="total-cost">0</p>
+                                    </div>
+                                    <input type="hidden" name="tables" id="selected-tables">
 
 
                                 </div>
@@ -357,6 +369,37 @@
                 });
             }
         });
+     document.addEventListener("DOMContentLoaded", function () {
+    let selectedTables = new Set();
+    let totalCost = 0;
+
+    document.querySelectorAll(".table-button").forEach(button => {
+        button.addEventListener("click", function () {
+            let tableId = this.getAttribute("data-table-id");
+            let tablePrice = parseFloat(this.getAttribute("data-table-price"));
+
+            if (selectedTables.has(tableId)) {
+                // Если стол уже выбран — убираем его
+                selectedTables.delete(tableId);
+                this.classList.remove("btn-primary");
+                this.classList.add("btn-outline-primary");
+                totalCost -= tablePrice;
+            } else {
+                // Если стол НЕ выбран — добавляем
+                selectedTables.add(tableId);
+                this.classList.add("btn-primary");
+                this.classList.remove("btn-outline-primary");
+                totalCost += tablePrice;
+            }
+
+            // Обновляем скрытое поле с ID столов
+            document.querySelector("#selected-tables").value = Array.from(selectedTables).join(",");
+            // Обновляем сумму
+            document.querySelector("#total-cost").textContent = totalCost;
+        });
+    });
+});
+
 
     </script>
 {% endblock extrascripts %}

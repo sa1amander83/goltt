@@ -45,6 +45,22 @@ class EventManager(models.Manager):
         return upcoming_events
 
 
+class Tables(models.Model):
+    number = models.IntegerField(unique=True, choices=[
+        (1, 'Стол 1'),
+        (2, 'Стол 2'),
+        (3, 'Стол 3'),
+        (4, 'Стол 4'),
+    ])
+    price_per_hour = models.DecimalField(max_digits=6, decimal_places=2, default=300)
+    price_per_half_hour = models.DecimalField(max_digits=6, decimal_places=2, default=200)
+
+    def __str__(self):
+        return f"Стол {self.number}"
+
+    class Meta:
+        verbose_name = 'Стол'
+        verbose_name_plural = 'Столы'
 class Event(EventAbstract):
     """ Event model """
 
@@ -55,8 +71,7 @@ class Event(EventAbstract):
     end_time = models.DateTimeField()
     cost=models.IntegerField(default=300)
     objects = EventManager()
-    table_number=models.IntegerField(validators=[MinValueValidator(1),
-                                  MaxValueValidator(4)])
+    tables = models.ManyToManyField(Tables, related_name='events')
 
     def __str__(self):
         return self.title

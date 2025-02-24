@@ -1,5 +1,6 @@
 from django.contrib import admin
 from calendarapp import models
+from .models.event import Tables
 
 
 @admin.register(models.Event)
@@ -13,6 +14,7 @@ class EventAdmin(admin.ModelAdmin):
         "is_deleted",
         "created_at",
         "updated_at",
+
     ]
     list_filter = ["is_active", "is_deleted"]
     search_fields = ["title"]
@@ -23,3 +25,16 @@ class EventMemberAdmin(admin.ModelAdmin):
     model = models.EventMember
     list_display = ["id", "event", "user", "created_at", "updated_at"]
     list_filter = ["event"]
+
+
+from django.contrib import admin
+from .models import Event
+
+@admin.register(Tables)
+class TableAdmin(admin.ModelAdmin):
+    list_display = ('number', 'price_per_hour')
+
+# @admin.register(Event)
+# class EventAdmin(admin.ModelAdmin):
+#     list_display = ('title', 'start_time', 'end_time')
+#     filter_horizontal = ('tables',)
