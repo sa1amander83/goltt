@@ -74,19 +74,12 @@
                                         {{ form.end_time }}
                                     </div>
 
-                                    <div class="form-group">
-                                        <label for="tables" class="col-form-label">Выберите стол:</label>
-                                        <div id="table-buttons">
-                                            {% for table in tables %}
-                                                <button type="button"
-                                                        class="btn btn-outline-primary table-button"
-                                                        data-table-id="{{ table.id }}"
-                                                        data-table-price="{{ table.price_per_hour }}">
-                                                    {{ table.number }}
-                                                </button>
-                                            {% endfor %}
-                                        </div>
-                                    </div>
+                                    <label for="id_table">Выберите стол:</label>
+                                    <select name="table" id="id_table" class="form-control">
+                                        {% for table in tables %}
+                                            <option value="{{ table.id }}">Стол {{ table.number }}</option>
+                                        {% endfor %}
+                                    </select>
 
                                     <div class="form-group">
                                         <label for="total-cost" class="col-form-label">Итоговая сумма:</label>
@@ -193,15 +186,18 @@
                     list: 'Список'
                 },
                 locale: 'ru',
-
+                slotDuration: '00:30:00',
+                slotLabelInterval: '00:30',
+                slotMinTime: '09:00:00',
+                slotMaxTime: '23:00:00',   // Конец отображения в 23:00
                 initialDate: today,
                 navLinks: true, // can click day/week names to navigate views
                 selectable: true,
                 selectMirror: true,
                 select: function (arg) {
-                    console.log('clicked')
-                    console.log(arg.start)
-                    console.log(arg.end)
+                    {#console.log('clicked')#}
+                    {#console.log(arg.start)#}
+                    {#console.log(arg.end)#}
                     var modal = document.getElementById('eventModal')
                     modal.style.display = 'block'
                     document.getElementById('id_start_time').value = converterDataParaDjangoFormat(arg.start);
@@ -218,7 +214,7 @@
                 // events: 'bn.bd#holiday@group.v.calendar.google.com',
                 eventClick: function (arg) {
 
-                    console.log('clicked')
+
                     var title = arg.event.title;
                     var start = formatDateTime(arg.event.start);
                     var end = formatDateTime(arg.event.end);
@@ -369,40 +365,17 @@
                 });
             }
         });
-   document.addEventListener("DOMContentLoaded", function () {
-    let selectedTables = new Set();
-    let totalCost = parseFloat(document.querySelector("#total-cost").textContent) || 0;
+        document.addEventListener("DOMContentLoaded", function () {
+            let tableSelect = document.querySelector("#id_table");
+            let tablePrice = 0;
 
-    document.querySelectorAll(".table-button").forEach(button => {
-        button.addEventListener("click", function () {
-            let tableId = this.dataset.tableId; 
-            let tablePrice = parseFloat(this.dataset.tablePrice);
+            tableSelect.addEventListener("change", function () {
+                let selectedOption = tableSelect.options[tableSelect.selectedIndex];
+                tablePrice = parseFloat(selectedOption.getAttribute("data-table-price")) || 0;
 
-            if (selectedTables.has(tableId)) {
-                // Убираем стол из выбора
-                selectedTables.delete(tableId);
-                this.classList.remove("btn-primary");
-                this.classList.add("btn-outline-primary");
-                totalCost -= tablePrice;
-            } else {
-                // Добавляем стол в выбор
-                selectedTables.add(tableId);
-                this.classList.add("btn-primary");
-                this.classList.remove("btn-outline-primary");
-                totalCost += tablePrice;
-            }
-
-            // Обновляем скрытое поле формы (чтобы передавался список, а не строка)
-            let hiddenInput = document.querySelector("#selected-tables");
-            hiddenInput.value = [...selectedTables]; // Передаём массив значений
-
-            // Обновляем стоимость
-            document.querySelector("#total-cost").textContent = totalCost.toFixed(2);
+                document.querySelector("#total-cost").textContent = tablePrice;
+            });
         });
-    });
-});
-
-
 
     </script>
 {% endblock extrascripts %}

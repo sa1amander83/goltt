@@ -131,7 +131,7 @@ class CalendarViewNew(LoginRequiredMixin, generic.View):
                     "start": event.start_time.strftime("%Y-%m-%dT%H:%M:%S"),
                     "end": event.end_time.strftime("%Y-%m-%dT%H:%M:%S"),
                     "description": event.description,
-                    "tables": str(event.tables.values_list('id', flat=True))
+                    "table": event.table.id if event.table else None
                 }
             )
         

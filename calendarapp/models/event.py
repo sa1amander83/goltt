@@ -71,7 +71,7 @@ class Event(EventAbstract):
     end_time = models.DateTimeField()
     cost=models.IntegerField(default=300)
     objects = EventManager()
-    tables = models.ManyToManyField(Tables, related_name='events')
+    tables = models.ForeignKey(Tables, on_delete=models.CASCADE, related_name="events", null=True)
 
     def __str__(self):
         return self.title

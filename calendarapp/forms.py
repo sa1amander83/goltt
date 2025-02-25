@@ -6,9 +6,9 @@ from calendarapp.models.event import Tables
 from django.forms.widgets import CheckboxSelectMultiple
 
 class EventForm(ModelForm):
-    tables = forms.ModelMultipleChoiceField(
+    table = forms.ModelChoiceField(
         queryset=Tables.objects.all(),
-        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
+        widget=forms.Select(attrs={'class': 'form-control'}),
         required=True
     )
 
@@ -27,15 +27,26 @@ class EventForm(ModelForm):
                     "rows": 3,
                 }
             ),
-            "start_time": DateInput(
-                attrs={"type": "datetime-local", "class": "form-control"},
-                format="%Y-%m-%dT%H:%M",
+            "start_time": forms.DateTimeInput(
+                attrs={
+                    'type': 'datetime-local',
+                    'step': '1800',  # 30 минут в секундах
+                    'min': '09:00',
+                    'max': '23:00',
+                    'class': 'form-control'
+                },
+                format='%Y-%m-%dT%H:%M'
             ),
-            "end_time": DateInput(
-                attrs={"type": "datetime-local", "class": "form-control"},
-                format="%Y-%m-%dT%H:%M",
+            "end_time": forms.DateTimeInput(
+                attrs={
+                    'type': 'datetime-local',
+                    'step': '1800',
+                    'min': '09:00',
+                    'max': '23:00',
+                    'class': 'form-control'
+                },
+                format='%Y-%m-%dT%H:%M'
             ),
-
 
 
         }
