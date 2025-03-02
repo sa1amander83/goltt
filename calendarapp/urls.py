@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from .views.event_list import AdminStatsView
 
 app_name = "calendarapp"
 
@@ -38,4 +39,5 @@ urlpatterns = [
         views.CompletedEventsListView.as_view(),
         name="completed_events",
     ),
+    path("stats/", AdminStatsView.as_view(), name="admin_stats"),
 ]

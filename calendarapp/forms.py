@@ -5,6 +5,7 @@ from django import forms
 from calendarapp.models.event import Tables
 from django.forms.widgets import CheckboxSelectMultiple
 
+
 class EventForm(ModelForm):
     table = forms.ModelChoiceField(
         queryset=Tables.objects.all(),
@@ -14,7 +15,7 @@ class EventForm(ModelForm):
 
     class Meta:
         model = Event
-        fields = ["title", "description", "start_time", "end_time", 'tables']
+        fields = ["title", "description", "start_time", "end_time", 'table', 'total_time', ]
         # datetime-local is a HTML5 input type
         widgets = {
             "title": forms.TextInput(
@@ -47,7 +48,15 @@ class EventForm(ModelForm):
                 },
                 format='%Y-%m-%dT%H:%M'
             ),
-
+            "total_time": forms.NumberInput(
+    attrs={
+        'class': 'form-control',
+        'min': '0',
+        'step': '0.5',  # шаг в 0.5
+        'max': '12',
+        'placeholder': '0'
+    }
+)
 
         }
         exclude = ["user"]

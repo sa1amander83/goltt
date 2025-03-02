@@ -49,8 +49,8 @@ class Tables(models.Model):
     number = models.IntegerField(unique=True, choices=[
         (1, 'Стол 1'),
         (2, 'Стол 2'),
-        (3, 'Стол 3'),
-        (4, 'Стол 4'),
+        # (3, 'Стол 3'),
+        # (4, 'Стол 4'),
     ])
     price_per_hour = models.DecimalField(max_digits=6, decimal_places=2, default=300)
     price_per_half_hour = models.DecimalField(max_digits=6, decimal_places=2, default=200)
@@ -71,7 +71,8 @@ class Event(EventAbstract):
     end_time = models.DateTimeField()
     cost=models.IntegerField(default=300)
     objects = EventManager()
-    tables = models.ForeignKey(Tables, on_delete=models.CASCADE, related_name="events", null=True)
+    table = models.ForeignKey(Tables, on_delete=models.CASCADE, related_name="events", null=True, default=1)
+    total_time=models.FloatField(default=0)
 
     def __str__(self):
         return self.title
