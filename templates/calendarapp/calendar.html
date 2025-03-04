@@ -24,11 +24,11 @@
                 <div class="col-md-3">
                     <div id="external-events">
                         <h4 class="mb-4">Сейчас идет</h4>
-                        {% for event in events_month %}
+                        {% for event in current_bookings %}
                             <div class="fc-event">
                                 <h3>{{ event.title }}</h3>
                                 <p>{{ event.description }}</p>
-                                <p>{{ event.id }}</p>
+                                <p>{{ event.table }}</p>
                                 <p>Начало: {{ event.start_time }}</p>
                                 <p>Конец: {{ event.end_time }}</p>
                             </div>
@@ -83,9 +83,16 @@
 
                                     <div class="form-group">
                                         <label for="total-cost" class="col-form-label">Итоговая сумма:</label>
-                                        <p id="total-cost">0</p>
+                                        <p id="total-cost-display">0</p>
                                     </div>
-                                    <input type="hidden" name="tables" id="selected-tables">
+                                    <input type="hidden" name="total-cost" id="total-cost">
+
+
+                                    <div class="form-group">
+                                        <label for="total-time" class="col-form-label">Всего часов:</label>
+                                        <p id="total-time-display">0</p>
+                                    </div>
+                                    <input type="hidden" name="time-time" id="total-time">
 
 
                                 </div>
@@ -364,18 +371,8 @@
                     }
                 });
             }
-        });
-        document.addEventListener("DOMContentLoaded", function () {
-            let tableSelect = document.querySelector("#id_table");
-            let tablePrice = 0;
 
-            tableSelect.addEventListener("change", function () {
-                let selectedOption = tableSelect.options[tableSelect.selectedIndex];
-                tablePrice = parseFloat(selectedOption.getAttribute("data-table-price")) || 0;
-
-                document.querySelector("#total-cost").textContent = tablePrice;
-            });
-        });
+               });
 
     </script>
 {% endblock extrascripts %}

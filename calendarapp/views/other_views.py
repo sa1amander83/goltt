@@ -223,12 +223,13 @@ class CalendarViewNew(LoginRequiredMixin, generic.View):
                 return redirect("calendarapp:calendar")
 
             form.total_time = request.POST.get("total_time")
+            form.total_cost = request.POST.get("total_cost")
 
             form.save()
 
 
             return redirect("calendarapp:calendar")
-
+        print("Form is not valid:", forms.errors)  # 🔹 Если форма не проходит
         context = {"form": forms}
         return render(request, self.template_name, context)
 
