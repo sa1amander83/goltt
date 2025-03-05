@@ -34,7 +34,8 @@ from .models import Event
 
 @admin.register(Tables)
 class TableAdmin(admin.ModelAdmin):
-    list_display = ('number', 'price_per_hour', 'price_per_half_hour')
+    list_display = ('number', 'price_per_hour', 'price_per_half_hour', 'table_description')
+    list_filter = ('number', 'price_per_hour', 'price_per_half_hour')
 
 # @admin.register(Event)
 # class EventAdmin(admin.ModelAdmin):

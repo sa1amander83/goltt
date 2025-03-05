@@ -49,12 +49,12 @@ class Tables(models.Model):
     number = models.IntegerField(unique=True, choices=[
         (1, 'Стол 1'),
         (2, 'Стол 2'),
-        # (3, 'Стол 3'),
-        # (4, 'Стол 4'),
+        (3, 'Стол 3'),
+        (4, 'Стол 4'),
     ])
     price_per_hour = models.DecimalField(max_digits=6, decimal_places=2, default=300)
     price_per_half_hour = models.DecimalField(max_digits=6, decimal_places=2, default=200)
-    table_description = models.TextField(blank=True, null=True)
+    table_description = models.CharField(blank=True, null=True, max_length=12)
 
     def __str__(self):
         return f"Стол {self.number}"

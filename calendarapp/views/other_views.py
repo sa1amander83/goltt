@@ -186,6 +186,7 @@ class CalendarViewNew(LoginRequiredMixin, generic.View):
                 "description": event.description,
                 "color": color,
                 "table_number": table_id,
+                "table_description": event.table.description,
                 "total_time": event.total_time
             })
         context = {
