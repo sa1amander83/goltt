@@ -54,6 +54,7 @@ class Tables(models.Model):
     ])
     price_per_hour = models.DecimalField(max_digits=6, decimal_places=2, default=300)
     price_per_half_hour = models.DecimalField(max_digits=6, decimal_places=2, default=200)
+    table_description = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"Стол {self.number}"
