@@ -5,7 +5,6 @@ from .views.event_list import AdminStatsView
 
 app_name = "calendarapp"
 
-
 urlpatterns = [
     path("calender/", views.CalendarViewNew.as_view(), name="calendar"),
     path("calenders/", views.CalendarView.as_view(), name="calendars"),
@@ -18,6 +17,8 @@ urlpatterns = [
     path(
         "add_eventmember/<int:event_id>", views.add_eventmember, name="add_eventmember"
     ),
+
+    path('change_event/<int:event_id>/', views.change_event, name='change_event'),
     path(
         "event/<int:pk>/remove",
         views.EventMemberDeleteView.as_view(),

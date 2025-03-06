@@ -81,24 +81,27 @@
                                             <option value="{{ table.id }}"
                                                     data-price-hour="{{ table.price_per_hour }}"
                                                     data-price-half-hour="{{ table.price_per_half_hour }}">
-                                                Стол {{ table.number }} ({{ table.description }})
+                                                Стол {{ table.number }} ({{ table.table_description }})
                                             </option>
                                         {% endfor %}
                                     </select>
-                                    <div class="form-group">
-                                        <label for="total-cost-display" class="col-form-label">Итоговая сумма:</label>
-                                        <p id="total-cost-display">0</p>
+                                    <div class="d-flex justify-content-between important">
+                                        <div class="form-group">
+                                            <label for="total-cost-display" class="col-form-label">Итоговая сумма:&nbsp;
+                                                <span id="total-cost-display">0</span></label>
+
+                                        </div>
+                                        <input type="hidden" name="total_cost" value="{{ total_cost }}" id="total-cost">
+
+
+                                        <div class="form-group">
+                                            <label for="total-time-display" class="col-form-label">Всего часов:&nbsp;
+                                                <span id="total-time-display">0</span></label>
+
+                                        </div>
+                                        <input type="hidden" name="total_time" value="{{ total_time }}" id="total-time">
+
                                     </div>
-                                    <input type="hidden" name="total_cost" value="{{ total_cost }}" id="total-cost">
-
-
-                                    <div class="form-group">
-                                        <label for="total-time-display" class="col-form-label">Всего часов:</label>
-                                        <p id="total-time-display">0</p>
-                                    </div>
-                                    <input type="hidden" name="total_time" value="{{ total_time }}" id="total-time">
-
-
                                 </div>
                                 <div class="modal-footer">
                                     <button id="modalClose2" type="button" class="btn btn-danger">Закрыть</button>
@@ -169,6 +172,8 @@
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="{% static 'calender/main.js' %}"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/flatpickr.min.js"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/ru.js"></script>
     <script>
         function formatDateTime(dateTime) {
             return new Date(dateTime).toLocaleString('ru-RU', {
@@ -288,7 +293,7 @@
             const totalCost = Math.floor(roundedHours) * pricePerHour +
                 (roundedHours % 1 !== 0 ? pricePerHalfHour : 0);
 
-            document.getElementById('total-time-display').textContent = `${roundedHours} часов`;
+            document.getElementById('total-time-display').textContent = `${roundedHours}`;
             document.getElementById('total-cost-display').textContent = `${totalCost.toFixed(2)} руб.`;
 
             document.getElementById('total-time').value = roundedHours;

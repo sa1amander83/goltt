@@ -127,7 +127,7 @@ from django.utils.dateparse import parse_datetime
 from django.shortcuts import render, redirect
 from django.contrib import messages
 import json
-
+import logging
 from django.views import generic
 from django.contrib.auth.mixins import LoginRequiredMixin
 
@@ -139,30 +139,29 @@ TABLE_COLORS = {
     5: "#4a074a",  # Фиолетовый
 }
 
-
+logger = logging.getLogger(__name__)
 class CalendarViewNew(LoginRequiredMixin, generic.View):
     login_url = "accounts:signin"
     template_name = "calendarapp/calendar.html"
     form_class = EventForm
 
     def get(self, request, *args, **kwargs):
-        forms = self.form_class()
+        form = self.form_class()
         current_time = now()
-        current_bookings = Event.objects.filter(start_time__lte=current_time, end_time__gte=current_time)
-        today_start = datetime.combine(datetime.today(), datetime.min.time())
+        today_start = datetime.combine(date.today(), datetime.min.time())
         today_end = today_start + timedelta(days=1)
 
-        # Фильтруем события за сегодняшний день
-        events = Event.objects.filter(start_time__gte=today_start, start_time__lt=today_end)
-        # Получаем все события за месяц (для всех пользователей)
-        events_month = Event.objects.filter(start_time__month=date.today().month, start_time__year=date.today().year)
+        # Загружаем события с учетом связей, чтобы избежать лишних запросов
+        events_month = Event.objects.filter(
+            start_time__month=date.today().month,
+            start_time__year=date.today().year
+        ).select_related("table")
 
-        # events = Event.objects.get_all_events(user=request.user)
-        # events_month = Event.objects.get_running_events()
-        # events_month = Event.objects.get_running_events(user=request.user)
+        # Текущие бронирования
+        current_bookings = events_month.filter(start_time__lte=current_time, end_time__gte=current_time)
+
+        # Подготовка списка событий
         event_list = []
-
-        all_tables = Tables.objects.all()
         for event in events_month:
             table_id = event.table.id if event.table else None
             color = TABLE_COLORS.get(table_id, "#3498db")
@@ -174,86 +173,67 @@ class CalendarViewNew(LoginRequiredMixin, generic.View):
                 "description": event.description,
                 "color": color,
                 "table_number": table_id,
-                "total_time": event.total_time
-            })
-
-        # События для текущего дня (если нужны отдельные события для сегодняшнего дня)
-        for event in events:
-            table_id = event.table.id if event.table else None
-            color = TABLE_COLORS.get(table_id, "#0d377a")
-            event_list.append({
-                "id": event.id,
-                "title": event.title,
-                "start": event.start_time.strftime("%Y-%m-%dT%H:%M:%S"),
-                "end": event.end_time.strftime("%Y-%m-%dT%H:%M:%S"),
-                "description": event.description,
-                "color": color,
-                "table_number": table_id,
                 "table_description": event.table.table_description,
                 "total_time": event.total_time
             })
-        tables_with_prices = [
-            {
-                "id": table.id,
-                "number": table.number,
-                "description": table.table_description,
-                "price_per_hour": table.price_per_hour,
-                "price_per_half_hour": table.price_per_half_hour,
-            }
-            for table in all_tables
-        ]
+
+        # Загружаем все столы с ценами
+        tables_with_prices = list(Tables.objects.values(
+            "id", "number", "table_description", "price_per_hour", "price_per_half_hour"
+        ))
 
         context = {
-            "form": forms,
+            "form": form,
             "events": json.dumps(event_list),
             "events_month": events_month,
             "current_bookings": current_bookings,
-            "tables": tables_with_prices,  # Передаем столы с ценами
+            "tables": tables_with_prices,
         }
         return render(request, self.template_name, context)
 
     def post(self, request, *args, **kwargs):
-        forms = self.form_class(request.POST)
-        if forms.is_valid():
-            form = forms.save(commit=False)
-            form.user = request.user
+        form = self.form_class(request.POST)
+        if form.is_valid():
+            event = form.save(commit=False)
+            event.user = request.user
 
-            # Получаем значения из POST-запроса
-            table_id = request.POST.get("table")
-            start_time = parse_datetime(request.POST.get("start_time"))
-            end_time = parse_datetime(request.POST.get("end_time"))
-            total_time = float(request.POST.get("total_time"))  # Получаем total_time
-            total_cost = float(request.POST.get("total_cost"))  # Получаем total_cost
+            try:
+                table_id = request.POST.get("table")
+                table = get_object_or_404(Tables, id=int(table_id)) if table_id else Tables.objects.first()
+                start_time = parse_datetime(request.POST.get("start_time"))
+                end_time = parse_datetime(request.POST.get("end_time"))
+                total_time = float(request.POST.get("total_time", 0))
+                total_cost = float(request.POST.get("total_cost", 0))
 
-            if not table_id:
-                form.table = Tables.objects.get(id=1)
-            else:
-                form.table = Tables.objects.get(id=int(table_id))
+                if not start_time or not end_time:
+                    messages.error(request, "Ошибка: Неверный формат даты или времени.")
+                    return redirect("calendarapp:calendar")
 
-            print(request.POST)  # Для отладки, чтобы увидеть, что приходит в запросе
+            except (ValueError, TypeError) as e:
+                logger.error(f"Ошибка парсинга данных: {e}")
+                messages.error(request, "Ошибка в данных о времени или стоимости")
+                return redirect("calendarapp:calendar")
 
             # Проверка на пересечение бронирований
-            overlapping_reservations = Event.objects.filter(
-                table=form.table,
+            if Event.objects.filter(
+                table=table,
                 start_time__lt=end_time,
                 end_time__gt=start_time
-            )
-
-            if overlapping_reservations.exists():
+            ).exists():
                 messages.error(request, "Выбранный стол уже забронирован на указанное время!")
                 return redirect("calendarapp:calendar")
 
-            # Если total_time и total_cost были переданы, сохраняем их в объекте события
-            form.total_time = total_time
-            form.total_cost = total_cost
-
-            form.save()  # Сохраняем объект формы
+            # Устанавливаем значения и сохраняем
+            event.table = table
+            event.total_time = total_time
+            event.total_cost = total_cost
+            event.save()
 
             return redirect("calendarapp:calendar")
 
-        print("Form is not valid:", forms.errors)  # 🔹 Если форма не проходит валидацию
-        context = {"form": forms}
-        return render(request, self.template_name, context)
+        logger.warning(f"Форма невалидна: {form.errors}")
+        messages.error(request, "Ошибка при заполнении формы")
+        return render(request, self.template_name, {"form": form})
 
 
 # def get_available_tables(self, request):
@@ -320,7 +300,7 @@ def next_day(request, event_id):
         return JsonResponse({'message': 'Ошибка при добавлении брони!'}, status=400)
 
 
-def update_event(request, event_id):
+def change_event(request, event_id):
     # Получаем объект события по ID
     event = get_object_or_404(Event, id=event_id)
 
