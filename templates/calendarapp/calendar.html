@@ -89,15 +89,14 @@
                                         <label for="total-cost-display" class="col-form-label">Итоговая сумма:</label>
                                         <p id="total-cost-display">0</p>
                                     </div>
-                                  <input type="hidden" name="total_cost" value="{{ total_cost }}" id="total-cost">
-
+                                    <input type="hidden" name="total_cost" value="{{ total_cost }}" id="total-cost">
 
 
                                     <div class="form-group">
                                         <label for="total-time-display" class="col-form-label">Всего часов:</label>
                                         <p id="total-time-display">0</p>
                                     </div>
-                              <input type="hidden" name="total_time" value="{{ total_time }}" id="total-time">
+                                    <input type="hidden" name="total_time" value="{{ total_time }}" id="total-time">
 
 
                                 </div>
@@ -140,6 +139,11 @@
                                     </div>
                                 </div>
                                 <div class="modal-footer">
+                                    <button id="change-event" data-event-id-day="" type="button"
+                                            class="btn btn-info">Изменить
+                                    </button>
+
+
                                     <button id="delete-event-button" data-event-id="" type="button"
                                             class="btn btn-danger">Удалить
                                     </button>
@@ -186,10 +190,8 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
-            
-            
-            
-            
+
+
             var calendarEl = document.getElementById('calendar');
             var today = new Date();
 
@@ -215,34 +217,34 @@
                 navLinks: true,
                 selectable: true,
                 selectMirror: true,
-               select: function (arg) {
-            document.getElementById('eventModal').style.display = 'block';
-            document.getElementById('id_start_time').value = formatDateForDjango(arg.start);
-            document.getElementById('id_end_time').value = formatDateForDjango(arg.end);
+                select: function (arg) {
+                    document.getElementById('eventModal').style.display = 'block';
+                    document.getElementById('id_start_time').value = formatDateForDjango(arg.start);
+                    document.getElementById('id_end_time').value = formatDateForDjango(arg.end);
 
-            startTimePicker.setDate(arg.start, true);
-            endTimePicker.setDate(arg.end, true);
-            calculateTimeAndCost();
+                    startTimePicker.setDate(arg.start, true);
+                    endTimePicker.setDate(arg.end, true);
+                    calculateTimeAndCost();
 
-            calendar.unselect();
-        },
-        eventClick: function(info) {
-            const event = info.event;
-            document.getElementById('title_event_detail').textContent = event.title;
-            document.getElementById('description_event_detail').textContent = event.extendedProps.description;
-            document.getElementById('start_event_detail').textContent = formatDateTime(event.start);
-            document.getElementById('end_event_detail').textContent = formatDateTime(event.end);
-            document.getElementById('delete-event-button').setAttribute('data-event-id', event.id);
-            document.getElementById('add-to-next-week').setAttribute('data-event-id-week', event.id);
-            document.getElementById('add-to-next-day').setAttribute('data-event-id-day', event.id);
+                    calendar.unselect();
+                },
+                eventClick: function (info) {
+                    const event = info.event;
+                    document.getElementById('title_event_detail').textContent = event.title;
+                    document.getElementById('description_event_detail').textContent = event.extendedProps.description;
+                    document.getElementById('start_event_detail').textContent = formatDateTime(event.start);
+                    document.getElementById('end_event_detail').textContent = formatDateTime(event.end);
+                    document.getElementById('delete-event-button').setAttribute('data-event-id', event.id);
+                    document.getElementById('add-to-next-week').setAttribute('data-event-id-week', event.id);
+                    document.getElementById('add-to-next-day').setAttribute('data-event-id-day', event.id);
 
-            const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
-            detailModal.show();
-        },
-        editable: true,
-        dayMaxEvents: true,
-        events: {{ events|safe }},
-    });
+                    const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+                    detailModal.show();
+                },
+                editable: true,
+                dayMaxEvents: true,
+                events: {{ events|safe }},
+            });
 
 
             calendar.setOption('locale', 'ru');
@@ -337,7 +339,7 @@
         };
         document.getElementById('delete-event-button').addEventListener('click', function () {
             const eventId = this.getAttribute('data-event-id');
-            if (confirm('Are you sure you want to delete this event?')) {
+            if (confirm('Хотите удалить событие?')) {
                 $.ajax({
                     url: `/delete_event/${eventId}/`,
                     type: 'POST',
@@ -349,7 +351,7 @@
                         window.location.reload();
                     },
                     error: function (xhr, status, error) {
-                        alert('Error!');
+                        alert('Ошибка удаления!');
                     }
 
                 });
@@ -358,7 +360,7 @@
 
         document.getElementById('add-to-next-week').addEventListener('click', function () {
             const eventId = this.getAttribute('data-event-id-week');
-            if (confirm('Are you sure you want add this event to next week?')) {
+            if (confirm('Хотите добавить событие на следующую неделю?')) {
                 $.ajax({
                     url: `/next_week/${eventId}/`,
                     type: 'POST',
@@ -370,7 +372,7 @@
                         window.location.reload();
                     },
                     error: function (xhr, status, error) {
-                        alert('Error!');
+                        alert('Ошибка!');
                     }
                 });
             }
@@ -378,7 +380,7 @@
 
         document.getElementById('add-to-next-day').addEventListener('click', function () {
             const eventId = this.getAttribute('data-event-id-day');
-            if (confirm('Are you sure you want add this event to next day?')) {
+            if (confirm('Хотите добавить событие на следующий день?')) {
                 $.ajax({
                     url: `/next_day/${eventId}/`,
                     type: 'POST',
@@ -390,14 +392,36 @@
                         window.location.reload();
                     },
                     error: function (xhr, status, error) {
-                        alert('Error!');
+                        alert('Ошибка!');
                     }
                 });
             }
-document.querySelector('form').addEventListener('submit', function(e) {
-    // Убедимся, что перед отправкой обновляются все значения
-    calculateTimeAndCost();
-});
+
+            document.getElementById('change-event').addEventListener('click', function () {
+                const eventId = this.getAttribute('data-event-id-day');
+                if (confirm('Хотите изменить событие?')) {
+                    $.ajax({
+                        url: `/change_event/${eventId}/`,
+                        type: 'POST',
+                        data: {
+                            csrfmiddlewaretoken: '{{ csrf_token }}',
+                        },
+                        success: function (response) {
+                            alert(response.message);
+                            window.location.reload();
+                        },
+                        error: function (xhr, status, error) {
+                            alert('Ошибка изменения!');
+                        }
+                    });
+                }
+            });
+
+
+            document.querySelector('form').addEventListener('submit', function (e) {
+                // Убедимся, что перед отправкой обновляются все значения
+                calculateTimeAndCost();
+            });
         });
 
     </script>

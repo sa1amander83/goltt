@@ -318,3 +318,22 @@ def next_day(request, event_id):
 
     else:
         return JsonResponse({'message': 'Ошибка при добавлении брони!'}, status=400)
+
+
+def update_event(request, event_id):
+    # Получаем объект события по ID
+    event = get_object_or_404(Event, id=event_id)
+
+    if request.method == 'POST':
+        # Заполняем форму данными из запроса и привязываем к существующему событию
+        form = EventForm(request.POST, instance=event)
+        if form.is_valid():
+            form.save()  # Сохраняем изменения
+            messages.success(request, 'Бронь успешно изменена!')
+            return redirect('calendar')  # Перенаправляем на страницу календаря
+        else:
+            return JsonResponse({'message': 'Ошибка при добавлении брони!'}, status=400)
+
+    return JsonResponse({'message': 'Бронь  изменена!'})
+
+
