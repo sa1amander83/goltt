@@ -15,7 +15,7 @@ class EventForm(ModelForm):
 
     class Meta:
         model = Event
-        fields = ["title", "description", "start_time", "end_time", 'table', 'total_time', ]
+        fields = ["title", "description", "start_time", "end_time", 'table', 'total_time', 'total_cost' ]
         # datetime-local is a HTML5 input type
         widgets = {
             "title": forms.TextInput(

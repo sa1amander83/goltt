@@ -70,7 +70,7 @@ class Event(EventAbstract):
     description = models.TextField()
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
-    cost=models.IntegerField(default=300)
+    total_cost=models.FloatField(default=300)
     objects = EventManager()
     table = models.ForeignKey(Tables, on_delete=models.CASCADE, related_name="events", null=True, default=1)
     total_time=models.FloatField(default=0)
