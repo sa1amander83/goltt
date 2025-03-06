@@ -68,7 +68,7 @@ def create_event(request):
         description = form.cleaned_data["description"]
         start_time = form.cleaned_data["start_time"]
         end_time = form.cleaned_data["end_time"]
-        total_time= form.cleaned_data["total_time"]
+        total_time = form.cleaned_data["total_time"]
 
         table = form.cleaned_data["table"]
 
@@ -130,6 +130,7 @@ import json
 
 from django.views import generic
 from django.contrib.auth.mixins import LoginRequiredMixin
+
 TABLE_COLORS = {
     1: "#610928",  # Красный
     2: "#063b14",  # Зеленый
@@ -137,6 +138,8 @@ TABLE_COLORS = {
     4: "#b8870d",  # Оранжевый
     5: "#4a074a",  # Фиолетовый
 }
+
+
 class CalendarViewNew(LoginRequiredMixin, generic.View):
     login_url = "accounts:signin"
     template_name = "calendarapp/calendar.html"
@@ -189,12 +192,23 @@ class CalendarViewNew(LoginRequiredMixin, generic.View):
                 "table_description": event.table.table_description,
                 "total_time": event.total_time
             })
+        tables_with_prices = [
+            {
+                "id": table.id,
+                "number": table.number,
+                "description": table.table_description,
+                "price_per_hour": table.price_per_hour,
+                "price_per_half_hour": table.price_per_half_hour,
+            }
+            for table in all_tables
+        ]
+
         context = {
             "form": forms,
             "events": json.dumps(event_list),
             "events_month": events_month,
             "current_bookings": current_bookings,
-            "tables": all_tables  # Изначально показываем все столы
+            "tables": tables_with_prices,  # Передаем столы с ценами
         }
         return render(request, self.template_name, context)
 
@@ -203,16 +217,22 @@ class CalendarViewNew(LoginRequiredMixin, generic.View):
         if forms.is_valid():
             form = forms.save(commit=False)
             form.user = request.user
+
+            # Получаем значения из POST-запроса
             table_id = request.POST.get("table")
             start_time = parse_datetime(request.POST.get("start_time"))
             end_time = parse_datetime(request.POST.get("end_time"))
+            total_time = float(request.POST.get("total_time"))  # Получаем total_time
+            total_cost = float(request.POST.get("total_cost"))  # Получаем total_cost
 
             if not table_id:
                 form.table = Tables.objects.get(id=1)
             else:
                 form.table = Tables.objects.get(id=int(table_id))
-            print(request.POST)
-            # Проверяем пересечение бронирований
+
+            print(request.POST)  # Для отладки, чтобы увидеть, что приходит в запросе
+
+            # Проверка на пересечение бронирований
             overlapping_reservations = Event.objects.filter(
                 table=form.table,
                 start_time__lt=end_time,
@@ -223,45 +243,45 @@ class CalendarViewNew(LoginRequiredMixin, generic.View):
                 messages.error(request, "Выбранный стол уже забронирован на указанное время!")
                 return redirect("calendarapp:calendar")
 
-            form.total_time = request.POST.get("total_time")
-            form.total_cost = request.POST.get("total_cost")
+            # Если total_time и total_cost были переданы, сохраняем их в объекте события
+            form.total_time = total_time
+            form.total_cost = total_cost
 
-            form.save()
-
+            form.save()  # Сохраняем объект формы
 
             return redirect("calendarapp:calendar")
-        print("Form is not valid:", forms.errors)  # 🔹 Если форма не проходит
+
+        print("Form is not valid:", forms.errors)  # 🔹 Если форма не проходит валидацию
         context = {"form": forms}
         return render(request, self.template_name, context)
 
-    def get_available_tables(self, request):
-        """AJAX-запрос для получения свободных столов"""
-        start_time_str = request.GET.get("start_time")
-        end_time_str = request.GET.get("end_time")
 
-        if not start_time_str or not end_time_str:
-            return JsonResponse({"error": "Invalid date"}, status=400)
-
-        start_time = parse_datetime(start_time_str)
-        end_time = parse_datetime(end_time_str)
-
-        if not start_time or not end_time:
-            return JsonResponse({"error": "Invalid datetime format"}, status=400)
-
-        # Получаем список уже забронированных столов
-        booked_tables = Event.objects.filter(
-            start_time__lt=end_time,
-            end_time__gt=start_time,
-            table__isnull=False  # Убираем пустые столы
-        ).values_list("table_id", flat=True)
-
-        # Фильтруем доступные столы
-        available_tables = Tables.objects.exclude(id__in=booked_tables)
-        tables_data = [{"id": table.id, "name": table.number} for table in available_tables]
-
-        return JsonResponse({"tables": tables_data})
-
-
+# def get_available_tables(self, request):
+#     """AJAX-запрос для получения свободных столов"""
+#     start_time_str = request.GET.get("start_time")
+#     end_time_str = request.GET.get("end_time")
+#
+#     if not start_time_str or not end_time_str:
+#         return JsonResponse({"error": "Invalid date"}, status=400)
+#
+#     start_time = parse_datetime(start_time_str)
+#     end_time = parse_datetime(end_time_str)
+#
+#     if not start_time or not end_time:
+#         return JsonResponse({"error": "Invalid datetime format"}, status=400)
+#
+#     # Получаем список уже забронированных столов
+#     booked_tables = Event.objects.filter(
+#         start_time__lt=end_time,
+#         end_time__gt=start_time,
+#         table__isnull=False  # Убираем пустые столы
+#     ).values_list("table_id", flat=True)
+#
+#     # Фильтруем доступные столы
+#     available_tables = Tables.objects.exclude(id__in=booked_tables)
+#     tables_data = [{"id": table.id, "name": table.number} for table in available_tables]
+#
+#     return JsonResponse({"tables": tables_data})
 
 
 def delete_event(request, event_id):
@@ -271,6 +291,7 @@ def delete_event(request, event_id):
         return JsonResponse({'message': 'Событие успешно удалено!'})
     else:
         return JsonResponse({'message': 'Ошибка при удалении события!'}, status=400)
+
 
 def next_week(request, event_id):
     event = get_object_or_404(Event, id=event_id)
@@ -284,8 +305,8 @@ def next_week(request, event_id):
     else:
         return JsonResponse({'message': 'Ошибка при добавлении брони!'}, status=400)
 
-def next_day(request, event_id):
 
+def next_day(request, event_id):
     event = get_object_or_404(Event, id=event_id)
     if request.method == 'POST':
         next = event
@@ -297,3 +318,22 @@ def next_day(request, event_id):
 
     else:
         return JsonResponse({'message': 'Ошибка при добавлении брони!'}, status=400)
+
+
+def update_event(request, event_id):
+    # Получаем объект события по ID
+    event = get_object_or_404(Event, id=event_id)
+
+    if request.method == 'POST':
+        # Заполняем форму данными из запроса и привязываем к существующему событию
+        form = EventForm(request.POST, instance=event)
+        if form.is_valid():
+            form.save()  # Сохраняем изменения
+            messages.success(request, 'Бронь успешно изменена!')
+            return redirect('calendar')  # Перенаправляем на страницу календаря
+        else:
+            return JsonResponse({'message': 'Ошибка при добавлении брони!'}, status=400)
+
+    return JsonResponse({'message': 'Бронь  изменена!'})
+
+

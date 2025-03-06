@@ -78,24 +78,25 @@
                                     <label for="id_table">Выберите стол:</label>
                                     <select name="table" id="id_table" class="form-control">
                                         {% for table in tables %}
-                                            <option value="{{ table.id }}">Стол {{ table.number }} (
-                                                {{ table.table_description }})
+                                            <option value="{{ table.id }}"
+                                                    data-price-hour="{{ table.price_per_hour }}"
+                                                    data-price-half-hour="{{ table.price_per_half_hour }}">
+                                                Стол {{ table.number }} ({{ table.description }})
                                             </option>
                                         {% endfor %}
                                     </select>
-
                                     <div class="form-group">
-                                        <label for="total-cost" class="col-form-label">Итоговая сумма:</label>
+                                        <label for="total-cost-display" class="col-form-label">Итоговая сумма:</label>
                                         <p id="total-cost-display">0</p>
                                     </div>
-                                    <input type="hidden" name="total-cost" id="total-cost">
+                                    <input type="hidden" name="total_cost" value="{{ total_cost }}" id="total-cost">
 
 
                                     <div class="form-group">
-                                        <label for="total-time" class="col-form-label">Всего часов:</label>
+                                        <label for="total-time-display" class="col-form-label">Всего часов:</label>
                                         <p id="total-time-display">0</p>
                                     </div>
-                                    <input type="hidden" name="time-time" id="total-time">
+                                    <input type="hidden" name="total_time" value="{{ total_time }}" id="total-time">
 
 
                                 </div>
@@ -138,6 +139,11 @@
                                     </div>
                                 </div>
                                 <div class="modal-footer">
+                                    <button id="change-event" data-event-id-day="" type="button"
+                                            class="btn btn-info">Изменить
+                                    </button>
+
+
                                     <button id="delete-event-button" data-event-id="" type="button"
                                             class="btn btn-danger">Удалить
                                     </button>
@@ -164,27 +170,34 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="{% static 'calender/main.js' %}"></script>
     <script>
-        function converterDataParaDjangoFormat(data) {
-            const dataJS = new Date(data);
-            const year = dataJS.getFullYear();
-            const month = (dataJS.getMonth() + 1).toString().padStart(2, '0');
-            const day = dataJS.getDate().toString().padStart(2, '0');
-            const hour = dataJS.getHours().toString().padStart(2, '0');
-            const minute = dataJS.getMinutes().toString().padStart(2, '0');
-            const second = dataJS.getSeconds().toString().padStart(2, '0');
-            const formatoDjango = `${year}-${month}-${day} ${hour}:${minute}:${second}`;
-            return formatoDjango;
+        function formatDateTime(dateTime) {
+            return new Date(dateTime).toLocaleString('ru-RU', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                timeZoneName: 'short'
+            });
+        }
 
+        function formatDateForDjango(date) {
+            const d = new Date(date);
+            return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')} ` +
+                `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:00`;
         }
 
         document.addEventListener('DOMContentLoaded', function () {
+
+
             var calendarEl = document.getElementById('calendar');
             var today = new Date();
 
             var calendar = new FullCalendar.Calendar(calendarEl, {
                 headerToolbar: {
                     left: 'prev,next today',
-
                     center: 'title',
                     right: 'dayGridMonth,timeGridWeek,timeGridDay,list'
                 },
@@ -199,104 +212,101 @@
                 slotDuration: '00:30:00',
                 slotLabelInterval: '00:30',
                 slotMinTime: '09:00:00',
-                slotMaxTime: '23:00:00',   // Конец отображения в 23:00
+                slotMaxTime: '23:00:00',
                 initialDate: today,
-                navLinks: true, // can click day/week names to navigate views
+                navLinks: true,
                 selectable: true,
                 selectMirror: true,
                 select: function (arg) {
-                    {#console.log('clicked')#}
-                    {#console.log(arg.start)#}
-                    {#console.log(arg.end)#}
-                    var modal = document.getElementById('eventModal')
-                    modal.style.display = 'block'
-                    document.getElementById('id_start_time').value = converterDataParaDjangoFormat(arg.start);
-                    document.getElementById('id_end_time').value = converterDataParaDjangoFormat(arg.end);
-                    calendar.unselect()
+                    document.getElementById('eventModal').style.display = 'block';
+                    document.getElementById('id_start_time').value = formatDateForDjango(arg.start);
+                    document.getElementById('id_end_time').value = formatDateForDjango(arg.end);
+
+                    startTimePicker.setDate(arg.start, true);
+                    endTimePicker.setDate(arg.end, true);
+                    calculateTimeAndCost();
+
+                    calendar.unselect();
                 },
+                eventClick: function (info) {
+                    const event = info.event;
+                    document.getElementById('title_event_detail').textContent = event.title;
+                    document.getElementById('description_event_detail').textContent = event.extendedProps.description;
+                    document.getElementById('start_event_detail').textContent = formatDateTime(event.start);
+                    document.getElementById('end_event_detail').textContent = formatDateTime(event.end);
+                    document.getElementById('delete-event-button').setAttribute('data-event-id', event.id);
+                    document.getElementById('add-to-next-week').setAttribute('data-event-id-week', event.id);
+                    document.getElementById('add-to-next-day').setAttribute('data-event-id-day', event.id);
 
-                // THIS KEY WON'T WORK IN PRODUCTION!!!
-                // To make your own Google API key, follow the directions here:
-                // http://fullcalendar.io/docs/google_calendar/
-                // googleCalendarApiKey: 'AIzaSyCqCxjjLtjbtkX37aOtWB8OfwBLy_6QuYk',
-
-                // bangladesh Holidays
-                // events: 'bn.bd#holiday@group.v.calendar.google.com',
-                eventClick: function (arg) {
-
-
-                    var title = arg.event.title;
-                    var start = formatDateTime(arg.event.start);
-                    var end = formatDateTime(arg.event.end);
-                    var description = arg.event.extendedProps.description || '';
-                    var id = arg.event.id;
-
-                    var modalInputEnd = document.getElementById('end_event_detail');
-
-                    var modal = document.getElementById('detailModal')
-                    var modalTitle = document.getElementById('title_event_detail');
-                    var modalStart = document.getElementById('start_event_detail');
-                    var modalEnd = document.getElementById('end_event_detail');
-                    var modalDescripition = document.getElementById('description_event_detail');
-                    var deleteButton = document.getElementById("delete-event-button");
-                    var nextWeek = document.getElementById("add-to-next-week");
-                    var nextDay = document.getElementById("add-to-next-day");
-
-                    deleteButton.setAttribute("data-event-id", id);
-                    nextWeek.setAttribute("data-event-id-week", id);
-                    nextDay.setAttribute("data-event-id-day", id);
-                    modal.style.display = 'block'
-
-                    modalTitle.textContent = title;
-                    modalStart.textContent = start;
-                    modalEnd.textContent = end;
-                    modalDescripition.textContent = description;
-
-
-                    modal.style.display = 'block';
+                    const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+                    detailModal.show();
                 },
                 editable: true,
-                dayMaxEvents: true, // allow "more" link when too many events
+                dayMaxEvents: true,
                 events: {{ events|safe }},
-                // events: [
-                //   {
-                //     title: 'All Day Event',
-                //     start: '2021-06-26'
-                //   },
-                //   {
-                //     groupId: 999,
-                //     title: 'Repeating Event',
-                //     start: '2020-09-16T16:00:00'
-                //   },
-                //   {
-                //     title: 'Conference',
-                //     start: '2020-09-11',
-                //     end: '2020-09-13'
-                //   },
-                //   {
-                //     title: 'Click for Google',
-                //     url: 'http://google.com/',
-                //     start: '2020-09-28'
-                //   }
-                // ]
             });
+
 
             calendar.setOption('locale', 'ru');
             calendar.render();
         });
-        flatpickr("#id_start_time", {
+
+        // Flatpickr настройки
+        const startTimePicker = flatpickr("#id_start_time", {
             enableTime: true,
             dateFormat: "Y-m-d H:i",
             time_24hr: true,
-            minuteIncrement: 30
+            minuteIncrement: 30,
+            locale: "ru",
+            onChange: calculateTimeAndCost
         });
 
-        flatpickr("#id_end_time", {
+        const endTimePicker = flatpickr("#id_end_time", {
             enableTime: true,
             dateFormat: "Y-m-d H:i",
             time_24hr: true,
-            minuteIncrement: 30
+            minuteIncrement: 30,
+            locale: "ru",
+            onChange: calculateTimeAndCost
         });
+
+        function calculateTimeAndCost() {
+            const startTime = startTimePicker.selectedDates[0];
+            const endTime = endTimePicker.selectedDates[0];
+
+            if (!startTime || !endTime) return;
+
+            const diffMs = endTime - startTime;
+            const diffHours = diffMs / (1000 * 60 * 60);
+            const roundedHours = Math.round(diffHours * 2) / 2;
+
+            const tableSelect = document.getElementById('id_table');
+            const selectedOption = tableSelect.options[tableSelect.selectedIndex];
+            const pricePerHour = parseFloat(selectedOption.getAttribute('data-price-hour')) || 0;
+            const pricePerHalfHour = parseFloat(selectedOption.getAttribute('data-price-half-hour')) || 0;
+
+            const totalCost = Math.floor(roundedHours) * pricePerHour +
+                (roundedHours % 1 !== 0 ? pricePerHalfHour : 0);
+
+            document.getElementById('total-time-display').textContent = `${roundedHours} часов`;
+            document.getElementById('total-cost-display').textContent = `${totalCost.toFixed(2)} руб.`;
+
+            document.getElementById('total-time').value = roundedHours;
+            document.getElementById('total-cost').value = parseInt(totalCost);
+        }
+
+        // Сохранение выбранного времени при открытии модального окна
+        document.getElementById('eventModal').addEventListener('shown.bs.modal', function () {
+            if (!startTimePicker.selectedDates[0]) startTimePicker.setDate("00:00", true);
+            if (!endTimePicker.selectedDates[0]) endTimePicker.setDate("00:30", true);
+            calculateTimeAndCost();
+        });
+
+        document.getElementById('id_table').addEventListener('change', calculateTimeAndCost);
+        document.getElementById('id_title').addEventListener('input', calculateTimeAndCost);
+        document.getElementById('id_description').addEventListener('input', calculateTimeAndCost);
+
+
         const closeBtn1 = document.getElementById('modalClose1');
         const closeBtn2 = document.getElementById('modalClose2');
         const closeBtn3 = document.getElementById('modalDetailClose');
@@ -329,7 +339,7 @@
         };
         document.getElementById('delete-event-button').addEventListener('click', function () {
             const eventId = this.getAttribute('data-event-id');
-            if (confirm('Are you sure you want to delete this event?')) {
+            if (confirm('Хотите удалить событие?')) {
                 $.ajax({
                     url: `/delete_event/${eventId}/`,
                     type: 'POST',
@@ -341,7 +351,7 @@
                         window.location.reload();
                     },
                     error: function (xhr, status, error) {
-                        alert('Error!');
+                        alert('Ошибка удаления!');
                     }
 
                 });
@@ -350,7 +360,7 @@
 
         document.getElementById('add-to-next-week').addEventListener('click', function () {
             const eventId = this.getAttribute('data-event-id-week');
-            if (confirm('Are you sure you want add this event to next week?')) {
+            if (confirm('Хотите добавить событие на следующую неделю?')) {
                 $.ajax({
                     url: `/next_week/${eventId}/`,
                     type: 'POST',
@@ -362,7 +372,7 @@
                         window.location.reload();
                     },
                     error: function (xhr, status, error) {
-                        alert('Error!');
+                        alert('Ошибка!');
                     }
                 });
             }
@@ -370,7 +380,7 @@
 
         document.getElementById('add-to-next-day').addEventListener('click', function () {
             const eventId = this.getAttribute('data-event-id-day');
-            if (confirm('Are you sure you want add this event to next day?')) {
+            if (confirm('Хотите добавить событие на следующий день?')) {
                 $.ajax({
                     url: `/next_day/${eventId}/`,
                     type: 'POST',
@@ -382,11 +392,36 @@
                         window.location.reload();
                     },
                     error: function (xhr, status, error) {
-                        alert('Error!');
+                        alert('Ошибка!');
                     }
                 });
             }
 
+            document.getElementById('change-event').addEventListener('click', function () {
+                const eventId = this.getAttribute('data-event-id-day');
+                if (confirm('Хотите изменить событие?')) {
+                    $.ajax({
+                        url: `/change_event/${eventId}/`,
+                        type: 'POST',
+                        data: {
+                            csrfmiddlewaretoken: '{{ csrf_token }}',
+                        },
+                        success: function (response) {
+                            alert(response.message);
+                            window.location.reload();
+                        },
+                        error: function (xhr, status, error) {
+                            alert('Ошибка изменения!');
+                        }
+                    });
+                }
+            });
+
+
+            document.querySelector('form').addEventListener('submit', function (e) {
+                // Убедимся, что перед отправкой обновляются все значения
+                calculateTimeAndCost();
+            });
         });
 
     </script>
