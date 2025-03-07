@@ -309,11 +309,11 @@ def change_event(request, event_id):
         form = EventForm(request.POST, instance=event)
         if form.is_valid():
             form.save()  # Сохраняем изменения
-            messages.success(request, 'Бронь успешно изменена!')
-            return redirect('calendar')  # Перенаправляем на страницу календаря
-        else:
-            return JsonResponse({'message': 'Ошибка при добавлении брони!'}, status=400)
 
-    return JsonResponse({'message': 'Бронь  изменена!'})
+            return  JsonResponse({'message': 'Бронь  успешно изменена!'})  # Перенаправляем на страницу календаря
+        else:
+            return JsonResponse({'message': 'Ошибка при изменении брони!'}, status=400)
+
+    return JsonResponse({'message': 'Метод не поддерживается!'}, status=405)
 
 
