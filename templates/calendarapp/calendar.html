@@ -142,7 +142,7 @@
                                     </div>
                                 </div>
                                 <div class="modal-footer">
-                                    <button id="change-event" data-event-id-delete="" type="button"
+                                    <button id="change-event" data-event-id-change="" type="button"
                                             class="btn btn-info">Изменить
                                     </button>
 
@@ -172,8 +172,7 @@
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="{% static 'calender/main.js' %}"></script>
-    <script src="https://npmcdn.com/flatpickr/dist/flatpickr.min.js"></script>
-    <script src="https://npmcdn.com/flatpickr/dist/l10n/ru.js"></script>
+        <script src="https://npmcdn.com/flatpickr/dist/l10n/ru.js"></script>
     <script>
         function formatDateTime(dateTime) {
             return new Date(dateTime).toLocaleString('ru-RU', {
@@ -227,8 +226,6 @@
                     document.getElementById('id_start_time').value = formatDateForDjango(arg.start);
                     document.getElementById('id_end_time').value = formatDateForDjango(arg.end);
 
-                    document.getElementById('id_end_time').value = formatDateForDjango(arg.end);
-
                     startTimePicker.setDate(arg.start, true);
                     endTimePicker.setDate(arg.end, true);
                     calculateTimeAndCost();
@@ -244,18 +241,16 @@
                     document.getElementById('delete-event-button').setAttribute('data-event-id', event.id);
                     document.getElementById('add-to-next-week').setAttribute('data-event-id-week', event.id);
                     document.getElementById('add-to-next-day').setAttribute('data-event-id-day', event.id);
-                    document.getElementById('change-event').setAttribute('data-event-id-delete', event.id);
+                    document.getElementById('change-event').setAttribute('data-event-id-change', event.id);
                     const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
                     detailModal.show();
                     document.getElementById('change-event').onclick = function () {
                         openEditModal(event)
                     };
                 },
-
                 editable: true,
                 dayMaxEvents: true,
                 events: {{ events|safe }},
-
             });
 
 
@@ -351,7 +346,6 @@
         };
         document.getElementById('delete-event-button').addEventListener('click', function () {
             const eventId = this.getAttribute('data-event-id');
-            console.log(eventId)
             if (confirm('Хотите удалить событие?')) {
                 $.ajax({
                     url: `/delete_event/${eventId}/`,
@@ -371,116 +365,30 @@
             }
         });
 
-document.addEventListener('DOMContentLoaded', function () {
-    var calendarEl = document.getElementById('calendar');
-    var today = new Date();
 
-    var calendar = new FullCalendar.Calendar(calendarEl, {
-        headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay,list'
-        },
-        buttonText: {
-            today: 'Сегодня',
-            month: 'Месяц',
-            week: 'Неделя',
-            day: 'День',
-            list: 'Список'
-        },
-        locale: 'ru',
-        slotDuration: '00:30:00',
-        slotLabelInterval: '00:30',
-        slotMinTime: '09:00:00',
-        slotMaxTime: '23:00:00',
-        initialDate: today,
-        navLinks: true,
-        selectable: true,
-        editable: true,
-        dayMaxEvents: true,
-        events: {{ events|safe }},
 
-        eventClick: function (info) {
-            const event = info.event;
-
-            // Заполняем модальное окно деталями события
-            document.getElementById('title_event_detail').textContent = event.title;
-            document.getElementById('description_event_detail').textContent = event.extendedProps.description;
-            document.getElementById('start_event_detail').textContent = formatDateTime(event.start);
-            document.getElementById('end_event_detail').textContent = formatDateTime(event.end);
-
-            // Сохраняем ID события в кнопки
-            document.getElementById('delete-event-button').setAttribute('data-event-id', event.id);
-            document.getElementById('add-to-next-week').setAttribute('data-event-id-week', event.id);
-            document.getElementById('add-to-next-day').setAttribute('data-event-id-day', event.id);
-            document.getElementById('change-event').setAttribute('data-event-id', event.id);
-
-            // Открываем модальное окно деталей события
-            const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
-            detailModal.show();
-
-            // Обновляем обработчик кнопки "Изменить"
-            document.getElementById('change-event').onclick = function () {
-                  detailModal.hide();
-                openEditModal(event);
-            };
-        }
-    });
-
-    calendar.render();
-});
-
-/**
- * Открывает модальное окно редактирования события
- */
-function openEditModal(event) {
-    document.getElementById('id_title').value = event.title;
-    document.getElementById('id_description').value = event.extendedProps.description;
-    document.getElementById('id_start_time').value = formatDateForDjango(event.start);
-    document.getElementById('id_end_time').value = formatDateForDjango(event.end);
-    document.getElementById('id_table').value = event.extendedProps.table_number;
-    {#document.getElementById('id_total_time').value = event.extendedProps.total_time;#}
-    {#document.getElementById('id_total_cost').value = event.extendedProps.total_cost;#}
-    {##}
-    
-    console.log(event.extendedProps)
-    // Устанавливаем обработ
-    //
-    // чик формы только при открытии окна
-    document.querySelector('#eventModal form').onsubmit = function (e) {
-        e.preventDefault();
-
-        const formData = new FormData(this);
-
-        // Отправка запроса на сервер для изменения события
-        $.ajax({
-            url: `/change_event/${event.id}/`,
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: function (response) {
-                alert(response.message);
-                const eventModal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
-                eventModal.hide();
-                window.location.reload();
-            },
-            error: function (xhr, status, error) {
-                alert('Ошибка при сохранении изменений!');
-                console.error(xhr.responseText);
+        document.getElementById('add-to-next-week').addEventListener('click', function () {
+            const eventId = this.getAttribute('data-event-id-week');
+            if (confirm('Хотите добавить событие на следующую неделю?')) {
+                $.ajax({
+                    url: `/next_week/${eventId}/`,
+                    type: 'POST',
+                    data: {
+                        csrfmiddlewaretoken: '{{ csrf_token }}',
+                    },
+                    success: function (response) {
+                        alert(response.message);
+                        window.location.reload();
+                    },
+                    error: function (xhr, status, error) {
+                        alert('Ошибка!');
+                    }
+                });
             }
         });
-    };
-
-    // Открываем модальное окно редактирования
-    const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
-    eventModal.show();
-}
-
 
         document.getElementById('add-to-next-day').addEventListener('click', function () {
             const eventId = this.getAttribute('data-event-id-day');
-
             if (confirm('Хотите добавить событие на следующий день?')) {
                 $.ajax({
                     url: `/next_day/${eventId}/`,
@@ -499,64 +407,95 @@ function openEditModal(event) {
             }
         });
 
+
+
         document.getElementById('change-event').addEventListener('click', function () {
-            const eventId = this.getAttribute('data-event-id-delete');
-            console.log('Event ID:', eventId); // Проверяем значение
+            const eventId = this.getAttribute('data-event-id-change');
+            if (!eventId) {
+                console.error('Event ID is missing!');
+                return;
+            }
 
             // Отправляем GET-запрос для получения данных события
             $.ajax({
-                url: `/get_event/${eventId}/`,
+                url: `/change_event/${eventId}/`,
                 type: 'GET',
                 success: function (response) {
                     // Заполняем форму данными
+
                     document.getElementById('id_title').value = response.title;
                     document.getElementById('id_description').value = response.description;
                     document.getElementById('id_start_time').value = response.start_time;
                     document.getElementById('id_end_time').value = response.end_time;
                     document.getElementById('id_table').value = response.table_id;
+                    document.getElementById('total-cost-display').innerText = response.total_cost.toString();
+                    document.getElementById('total-time-display').innerText = response.total_time.toString();
 
                     // Открываем модальное окно
                     const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
                     eventModal.show();
 
-                    // Добавляем обработчик отправки формы внутри success, чтобы привязка была только при открытии окна
+                    // Обработчик отправки формы
                     document.querySelector('#eventModal form').onsubmit = function (e) {
-                        e.preventDefault(); // Отменяем стандартную отправку формы
+                        e.preventDefault();
 
-                        const formData = new FormData(this); // Собираем данные формы
+                        const formData = new FormData(this);
+                        for (let [key, value] of formData.entries()) {
+                            console.log(key, value);  // Логируем данные формы
+                        }
 
                         // Отправляем POST-запрос для сохранения изменений
                         $.ajax({
-                            url: `/change_event/${eventId}/`, // URL для сохранения изменений
+                            url: `/change_event/${eventId}/`,
                             type: 'POST',
                             data: formData,
                             processData: false,
                             contentType: false,
+                            headers: {
+                                'X-CSRFToken': getCookie('csrftoken')  // Добавляем CSRF-токен
+                            },
                             success: function (response) {
-                                alert(response.message); // Сообщение об успехе
-                                eventModal.hide(); // Закрываем модальное окно
-                                window.location.reload(); // Перезагружаем страницу
+                                alert(response.message);
+                                eventModal.hide();
+                                window.location.reload();
                             },
                             error: function (xhr, status, error) {
                                 alert('Ошибка при сохранении изменений!');
-                                console.error(xhr.responseText); // Логируем ошибку
+                                console.error(xhr.responseText);
                             }
                         });
                     };
                 },
                 error: function (xhr, status, error) {
                     alert('Ошибка при получении данных события!');
-                    console.error(xhr.responseText); // Логируем ошибку
+                    console.error(xhr.responseText);
                 }
             });
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+            document.querySelector('form').addEventListener('submit', function (e) {
+                // Убедимся, что перед отправкой обновляются все значения
+                calculateTimeAndCost();
+            });
+
+
+
+
         });
-
-
-        document.querySelector('form').addEventListener('submit', function (e) {
-            // Убедимся, что перед отправкой обновляются все значения
-            calculateTimeAndCost();
-        })
-
 
     </script>
 {% endblock extrascripts %}

@@ -140,7 +140,8 @@ TABLE_COLORS = {
 }
 
 logger = logging.getLogger(__name__)
-class CalendarViewNew(LoginRequiredMixin, generic.View):
+class CalendarViewNew(generic.View):
+# class CalendarViewNew(LoginRequiredMixin, generic.View):
     login_url = "accounts:signin"
     template_name = "calendarapp/calendar.html"
     form_class = EventForm
@@ -301,19 +302,28 @@ def next_day(request, event_id):
 
 
 def change_event(request, event_id):
-    # Получаем объект события по ID
     event = get_object_or_404(Event, id=event_id)
 
-    if request.method == 'POST':
-        # Заполняем форму данными из запроса и привязываем к существующему событию
+    if request.method == 'GET':
+        data = {
+            'title': event.title,
+            'description': event.description,
+            'start_time': event.start_time.strftime('%Y-%m-%dT%H:%M:%S'),
+            'end_time': event.end_time.strftime('%Y-%m-%dT%H:%M:%S'),
+            'table_id': event.table_id,
+            'total_cost': event.total_cost,
+            'total_time': event.total_time,
+        }
+        return JsonResponse(data)
+
+    elif request.method == 'POST':
         form = EventForm(request.POST, instance=event)
         if form.is_valid():
-            form.save()  # Сохраняем изменения
-
-            return  JsonResponse({'message': 'Бронь  успешно изменена!'})  # Перенаправляем на страницу календаря
+            form.save()
+            return JsonResponse({'message': 'Бронь успешно изменена!'})
         else:
-            return JsonResponse({'message': 'Ошибка при изменении брони!'}, status=400)
+            # Логируем ошибки формы
+            print(form.errors)
+            return JsonResponse({'message': 'Ошибка при изменении брони!', 'errors': form.errors}, status=400)
 
     return JsonResponse({'message': 'Метод не поддерживается!'}, status=405)
-
-
