@@ -1,0 +1,81 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}События{% endblock title %}
+
+{% block breadcrumb %}
+    <ul class="app-breadcrumb breadcrumb">
+        <li class="breadcrumb-item"><i class="fa fa-home fa-lg"></i></li>
+        <li class="breadcrumb-item"><a>Отчет по столам</a></li>
+    </ul>
+{% endblock breadcrumb %}
+
+{% block content %}
+<h2>Статистика по столам</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Стол</th>
+            <th>Количество бронирований за день</th>
+            <th>Количество бронирований за месяц</th>
+            <th>Дневной доход</th>
+            <th>Месячный доход</th>
+        </tr>
+    </thead>
+    <tbody>
+       {% for stat in table_stats %}
+            <tr>
+                <td>{{ stat.table_number }}</td>
+                <td>{{ stat.total_bookings_today }}</td>
+                <td>{{ stat.total_bookings_month }}</td>
+                <td>{{ stat.daily_income }} ₽</td>
+                <td>{{ stat.monthly_income }} ₽</td>
+            </tr>
+       {% endfor %}
+    </tbody>
+</table>
+
+    <h2>
+    Итого за день: {{ total_daily_income }} ₽
+    </h2>
+    <h2>
+    Итого за месяц: {{ total_monthly_income }} ₽
+    </h2>
+
+
+<canvas id="bookingChart" width="400" height="200"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    var ctx = document.getElementById('bookingChart').getContext('2d');
+    var bookingChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: [{% for stat in table_stats %}"Стол {{ stat.table_number }}",{% endfor %}],
+            datasets: [{
+                label: 'Количество бронирований за день',
+                data: [{% for stat in table_stats %}{{ stat.total_bookings_today }},{% endfor %}],
+                backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            },{
+                label: 'Количество бронирований за месяц',
+                data: [{% for stat in table_stats %}{{ stat.total_bookings_month }},{% endfor %}],
+                backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+</script>
+
+{% endblock %}

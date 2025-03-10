@@ -1,0 +1,501 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% block title %}Event Calendar{% endblock title %}
+
+{% block extracss %}
+    <link href="{% static 'calender/main.css' %}" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+{% endblock extracss %}
+
+{% block breadcrumb %}
+    <div>
+        <h1><i class="fa fa-calendar"></i> Календарь</h1>
+        <p>Расписание</p>
+    </div>
+    <ul class="app-breadcrumb breadcrumb">
+        <li class="breadcrumb-item"><i class="fa fa-home fa-lg"></i></li>
+        <li class="breadcrumb-item"><a>Календарь </a></li>
+    </ul>
+{% endblock breadcrumb %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="tile row">
+                <div class="col-md-3">
+                    <div id="external-events">
+                        <h4 class="mb-4">Сейчас идет</h4>
+                        {% for event in current_bookings %}
+                            <div class="fc-event">
+                                <h3>{{ event.title }}</h3>
+                                <p>{{ event.description }}</p>
+                                <p>{{ event.table }}</p>
+                                <p>Начало: {{ event.start_time }}</p>
+                                <p>Конец: {{ event.end_time }}</p>
+                            </div>
+                        {% empty %}
+                            <p> Не найдено бронирований</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="col-md-9">
+                    <div id="calendar"></div>
+                </div>
+
+                <div class="modal fade show" id="eventModal" tabindex="-1" role="dialog"
+                     aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header bg-primary">
+                                <h5 class="modal-title text-white" id="exampleModalLongTitle">Забронировать стол</h5>
+                                <button id="modalClose1" type="button" class="close" data-dismiss="modal"
+                                        aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <form method="post">
+                                {% csrf_token %}
+                                <div class="modal-body">
+
+
+                                    <div class="form-group">
+                                        <label for="recipient-name" class="col-form-label"></label>
+                                        {{ form.title }}
+                                    </div>
+                                    <div class="form-group">
+                                        {#                                    <label for="message-text" class="col-form-label">Описание:</label>#}
+                                        {{ form.description }}
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="message-text" class="col-form-label">Начало брони:</label>
+                                        {{ form.start_time }}
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="message-text" class="col-form-label">Конец брони:</label>
+                                        {{ form.end_time }}
+                                    </div>
+
+                                    <label for="id_table">Выберите стол:</label>
+                                    <select name="table" id="id_table" class="form-control">
+                                        {% for table in tables %}
+                                            <option value="{{ table.id }}"
+                                                    data-price-hour="{{ table.price_per_hour }}"
+                                                    data-price-half-hour="{{ table.price_per_half_hour }}">
+                                                Стол {{ table.number }} ({{ table.table_description }})
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="d-flex justify-content-between important">
+                                        <div class="form-group">
+                                            <label for="total-cost-display" class="col-form-label">Итоговая сумма:&nbsp;
+                                                <span id="total-cost-display">0</span></label>
+
+                                        </div>
+                                        <input type="hidden" name="total_cost" value="{{ total_cost }}" id="total-cost">
+
+
+                                        <div class="form-group">
+                                            <label for="total-time-display" class="col-form-label">Всего часов:&nbsp;
+                                                <span id="total-time-display">0</span></label>
+
+                                        </div>
+                                        <input type="hidden" name="total_time" value="{{ total_time }}" id="total-time">
+
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button id="modalClose2" type="button" class="btn btn-danger">Закрыть</button>
+                                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal fade show" id="detailModal" tabindex="-1" role="dialog"
+                     aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header bg-primary">
+                                <h5 class="modal-title text-white" id="title_event_detail"></h5>
+                                <button id="modalDetailClose" type="button" class="close" data-dismiss="modal"
+                                        aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <form method="">
+                                {% csrf_token %}
+                                <div class="modal-body">
+
+                                    <div class="form-group">
+                                        {#                                  <label for="message-text" class="col-form-label">Описание:</label>#}
+                                        <p id="description_event_detail">
+
+                                        </p>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="message-text" class="col-form-label">Начало брони:</label>
+                                        <p id="start_event_detail">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="message-text" class="col-form-label">Конец брони:</label>
+                                        <p id="end_event_detail">
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button id="change-event" data-event-id-change="" type="button"
+                                            class="btn btn-info">Изменить
+                                    </button>
+
+
+                                    <button id="delete-event-button" data-event-id="" type="button"
+                                            class="btn btn-danger">Удалить
+                                    </button>
+                                    <button id="add-to-next-week" data-event-id-week="" type="button"
+                                            class="btn btn-success">Следующая неделя
+                                    </button>
+                                    <button id="add-to-next-day" data-event-id-day="" type="button"
+                                            class="btn btn-primary">Завтра
+                                    </button>
+
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock content %}
+
+
+{% block extrascripts %}
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="{% static 'calender/main.js' %}"></script>
+        <script src="https://npmcdn.com/flatpickr/dist/l10n/ru.js"></script>
+    <script>
+        function formatDateTime(dateTime) {
+            return new Date(dateTime).toLocaleString('ru-RU', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                timeZoneName: 'short'
+            });
+        }
+
+        function formatDateForDjango(date) {
+            const d = new Date(date);
+            return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')} ` +
+                `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:00`;
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+
+
+            var calendarEl = document.getElementById('calendar');
+            var today = new Date();
+
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay,list'
+                },
+                buttonText: {
+                    today: 'Сегодня',
+                    month: 'Месяц',
+                    week: 'Неделя',
+                    day: 'День',
+                    list: 'Список'
+                },
+                locale: 'ru',
+                slotDuration: '00:30:00',
+                slotLabelInterval: '00:30',
+                slotMinTime: '09:00:00',
+                slotMaxTime: '23:00:00',
+                initialDate: today,
+                navLinks: true,
+                selectable: true,
+                selectMirror: true,
+                select: function (arg) {
+                    document.getElementById('eventModal').style.display = 'block';
+                    document.getElementById('id_start_time').value = formatDateForDjango(arg.start);
+                    document.getElementById('id_end_time').value = formatDateForDjango(arg.end);
+
+                    startTimePicker.setDate(arg.start, true);
+                    endTimePicker.setDate(arg.end, true);
+                    calculateTimeAndCost();
+
+                    calendar.unselect();
+                },
+                eventClick: function (info) {
+                    const event = info.event;
+                    document.getElementById('title_event_detail').textContent = event.title;
+                    document.getElementById('description_event_detail').textContent = event.extendedProps.description;
+                    document.getElementById('start_event_detail').textContent = formatDateTime(event.start);
+                    document.getElementById('end_event_detail').textContent = formatDateTime(event.end);
+                    document.getElementById('delete-event-button').setAttribute('data-event-id', event.id);
+                    document.getElementById('add-to-next-week').setAttribute('data-event-id-week', event.id);
+                    document.getElementById('add-to-next-day').setAttribute('data-event-id-day', event.id);
+                    document.getElementById('change-event').setAttribute('data-event-id-change', event.id);
+                    const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+                    detailModal.show();
+                    document.getElementById('change-event').onclick = function () {
+                        openEditModal(event)
+                    };
+                },
+                editable: true,
+                dayMaxEvents: true,
+                events: {{ events|safe }},
+            });
+
+
+            calendar.setOption('locale', 'ru');
+            calendar.render();
+        });
+
+        // Flatpickr настройки
+        const startTimePicker = flatpickr("#id_start_time", {
+            enableTime: true,
+            dateFormat: "Y-m-d H:i",
+            time_24hr: true,
+            minuteIncrement: 30,
+            locale: "ru",
+            onChange: calculateTimeAndCost
+        });
+
+        const endTimePicker = flatpickr("#id_end_time", {
+            enableTime: true,
+            dateFormat: "Y-m-d H:i",
+            time_24hr: true,
+            minuteIncrement: 30,
+            locale: "ru",
+            onChange: calculateTimeAndCost
+        });
+
+        function calculateTimeAndCost() {
+            const startTime = startTimePicker.selectedDates[0];
+            const endTime = endTimePicker.selectedDates[0];
+
+            if (!startTime || !endTime) return;
+
+            const diffMs = endTime - startTime;
+            const diffHours = diffMs / (1000 * 60 * 60);
+            const roundedHours = Math.round(diffHours * 2) / 2;
+
+            const tableSelect = document.getElementById('id_table');
+            const selectedOption = tableSelect.options[tableSelect.selectedIndex];
+            const pricePerHour = parseFloat(selectedOption.getAttribute('data-price-hour')) || 0;
+            const pricePerHalfHour = parseFloat(selectedOption.getAttribute('data-price-half-hour')) || 0;
+
+            const totalCost = Math.floor(roundedHours) * pricePerHour +
+                (roundedHours % 1 !== 0 ? pricePerHalfHour : 0);
+
+            document.getElementById('total-time-display').textContent = `${roundedHours}`;
+            document.getElementById('total-cost-display').textContent = `${totalCost.toFixed(2)} руб.`;
+
+            document.getElementById('total-time').value = roundedHours;
+            document.getElementById('total-cost').value = parseInt(totalCost);
+        }
+
+        // Сохранение выбранного времени при открытии модального окна
+        document.getElementById('eventModal').addEventListener('shown.bs.modal', function () {
+            if (!startTimePicker.selectedDates[0]) startTimePicker.setDate("00:00", true);
+            if (!endTimePicker.selectedDates[0]) endTimePicker.setDate("00:30", true);
+            calculateTimeAndCost();
+        });
+
+        document.getElementById('id_table').addEventListener('change', calculateTimeAndCost);
+        document.getElementById('id_title').addEventListener('input', calculateTimeAndCost);
+        document.getElementById('id_description').addEventListener('input', calculateTimeAndCost);
+
+
+        const closeBtn1 = document.getElementById('modalClose1');
+        const closeBtn2 = document.getElementById('modalClose2');
+        const closeBtn3 = document.getElementById('modalDetailClose');
+        closeBtn1.addEventListener('click', () => {
+            const eventModal = document.getElementById('eventModal')
+            eventModal.style.display = 'none';
+        });
+        closeBtn2.addEventListener('click', () => {
+            const eventModal = document.getElementById('eventModal')
+            eventModal.style.display = 'none';
+        });
+        closeBtn3.addEventListener('click', () => {
+            const eventModal = document.getElementById('detailModal')
+            eventModal.style.display = 'none';
+        });
+
+        function formatDateTime(dateTime) {
+            const options = {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                timeZoneName: 'short'
+            };
+            const dataFormatada = new Date(dateTime).toLocaleDateString('ru-RU', options);
+            return dataFormatada;
+        };
+        document.getElementById('delete-event-button').addEventListener('click', function () {
+            const eventId = this.getAttribute('data-event-id');
+            if (confirm('Хотите удалить событие?')) {
+                $.ajax({
+                    url: `/delete_event/${eventId}/`,
+                    type: 'POST',
+                    data: {
+                        csrfmiddlewaretoken: '{{ csrf_token }}',
+                    },
+                    success: function (response) {
+                        alert(response.message);
+                        window.location.reload();
+                    },
+                    error: function (xhr, status, error) {
+                        alert('Ошибка удаления!');
+                    }
+
+                });
+            }
+        });
+
+
+
+        document.getElementById('add-to-next-week').addEventListener('click', function () {
+            const eventId = this.getAttribute('data-event-id-week');
+            if (confirm('Хотите добавить событие на следующую неделю?')) {
+                $.ajax({
+                    url: `/next_week/${eventId}/`,
+                    type: 'POST',
+                    data: {
+                        csrfmiddlewaretoken: '{{ csrf_token }}',
+                    },
+                    success: function (response) {
+                        alert(response.message);
+                        window.location.reload();
+                    },
+                    error: function (xhr, status, error) {
+                        alert('Ошибка!');
+                    }
+                });
+            }
+        });
+
+        document.getElementById('add-to-next-day').addEventListener('click', function () {
+            const eventId = this.getAttribute('data-event-id-day');
+            if (confirm('Хотите добавить событие на следующий день?')) {
+                $.ajax({
+                    url: `/next_day/${eventId}/`,
+                    type: 'POST',
+                    data: {
+                        csrfmiddlewaretoken: '{{ csrf_token }}',
+                    },
+                    success: function (response) {
+                        alert(response.message);
+                        window.location.reload();
+                    },
+                    error: function (xhr, status, error) {
+                        alert('Ошибка!');
+                    }
+                });
+            }
+        });
+
+
+
+        document.getElementById('change-event').addEventListener('click', function () {
+            const eventId = this.getAttribute('data-event-id-change');
+            if (!eventId) {
+                console.error('Event ID is missing!');
+                return;
+            }
+
+            // Отправляем GET-запрос для получения данных события
+            $.ajax({
+                url: `/change_event/${eventId}/`,
+                type: 'GET',
+                success: function (response) {
+                    // Заполняем форму данными
+
+                    document.getElementById('id_title').value = response.title;
+                    document.getElementById('id_description').value = response.description;
+                    document.getElementById('id_start_time').value = response.start_time;
+                    document.getElementById('id_end_time').value = response.end_time;
+                    document.getElementById('id_table').value = response.table_id;
+                    document.getElementById('total-cost-display').innerText = response.total_cost.toString();
+                    document.getElementById('total-time-display').innerText = response.total_time.toString();
+
+                    // Открываем модальное окно
+                    const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
+                    eventModal.show();
+
+                    // Обработчик отправки формы
+                    document.querySelector('#eventModal form').onsubmit = function (e) {
+                        e.preventDefault();
+
+                        const formData = new FormData(this);
+                        for (let [key, value] of formData.entries()) {
+                            console.log(key, value);  // Логируем данные формы
+                        }
+
+                        // Отправляем POST-запрос для сохранения изменений
+                        $.ajax({
+                            url: `/change_event/${eventId}/`,
+                            type: 'POST',
+                            data: formData,
+                            processData: false,
+                            contentType: false,
+                            headers: {
+                                'X-CSRFToken': getCookie('csrftoken')  // Добавляем CSRF-токен
+                            },
+                            success: function (response) {
+                                alert(response.message);
+                                eventModal.hide();
+                                window.location.reload();
+                            },
+                            error: function (xhr, status, error) {
+                                alert('Ошибка при сохранении изменений!');
+                                console.error(xhr.responseText);
+                            }
+                        });
+                    };
+                },
+                error: function (xhr, status, error) {
+                    alert('Ошибка при получении данных события!');
+                    console.error(xhr.responseText);
+                }
+            });
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+            document.querySelector('form').addEventListener('submit', function (e) {
+                // Убедимся, что перед отправкой обновляются все значения
+                calculateTimeAndCost();
+            });
+
+
+
+
+        });
+
+    </script>
+{% endblock extrascripts %}
