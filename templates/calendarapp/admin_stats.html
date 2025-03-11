@@ -2,7 +2,10 @@
 {% load static %}
 
 {% block title %}События{% endblock title %}
+{% block extracss %}
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.21/css/jquery.dataTables.css">
 
+{% endblock extracss %}
 {% block breadcrumb %}
     <ul class="app-breadcrumb breadcrumb">
         <li class="breadcrumb-item"><i class="fa fa-home fa-lg"></i></li>
@@ -37,7 +40,7 @@
 </table>
 
     <h2>
-    Итого за день: {{ total_daily_income }} ₽
+    Итого за сегодня: {{ total_daily_income }} ₽
     </h2>
     <h2>
     Итого за месяц: {{ total_monthly_income }} ₽
@@ -45,9 +48,31 @@
 
 
 <canvas id="bookingChart" width="400" height="200"></canvas>
-
+{% endblock content %}
+{% block extrascripts %}
+<script  src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script>
+    $(document).ready(function() {
+        $('table').DataTable({
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Russian.json"
+            }
+        });
+    });
+    
+        $(document).ready(function() {
+        $('#bookingTable').DataTable({
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Russian.json"
+            }
+        });
+    });
+</script>
+</script>
 <script>
+
     var ctx = document.getElementById('bookingChart').getContext('2d');
     var bookingChart = new Chart(ctx, {
         type: 'bar',

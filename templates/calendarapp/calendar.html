@@ -5,6 +5,8 @@
 {% block extracss %}
     <link href="{% static 'calender/main.css' %}" rel="stylesheet"/>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
 {% endblock extracss %}
 
 {% block breadcrumb %}
@@ -172,7 +174,8 @@
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="{% static 'calender/main.js' %}"></script>
-        <script src="https://npmcdn.com/flatpickr/dist/l10n/ru.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/ru.js"></script>
     <script>
         function formatDateTime(dateTime) {
             return new Date(dateTime).toLocaleString('ru-RU', {
@@ -194,8 +197,6 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
-
-
             var calendarEl = document.getElementById('calendar');
             var today = new Date();
 
@@ -242,17 +243,20 @@
                     document.getElementById('add-to-next-week').setAttribute('data-event-id-week', event.id);
                     document.getElementById('add-to-next-day').setAttribute('data-event-id-day', event.id);
                     document.getElementById('change-event').setAttribute('data-event-id-change', event.id);
+
                     const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
                     detailModal.show();
+
                     document.getElementById('change-event').onclick = function () {
-                        openEditModal(event)
+                        const detailModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('detailModal'));
+                        detailModal.hide();  // Закрываем окно деталей
+                        openEditModal(event);  // Открываем окно редактирования
                     };
                 },
                 editable: true,
                 dayMaxEvents: true,
                 events: {{ events|safe }},
             });
-
 
             calendar.setOption('locale', 'ru');
             calendar.render();
@@ -304,8 +308,17 @@
 
         // Сохранение выбранного времени при открытии модального окна
         document.getElementById('eventModal').addEventListener('shown.bs.modal', function () {
-            if (!startTimePicker.selectedDates[0]) startTimePicker.setDate("00:00", true);
-            if (!endTimePicker.selectedDates[0]) endTimePicker.setDate("00:30", true);
+            if (!startTimePicker.selectedDates[0]) {
+                let today = new Date();
+                today.setHours(0, 0, 0, 0);  // Устанавливаем на полночь
+                startTimePicker.setDate(today, true);
+            }
+
+            if (!endTimePicker.selectedDates[0]) {
+                let today = new Date();
+                today.setHours(0, 30, 0, 0);  // Устанавливаем на 00:30
+                endTimePicker.setDate(today, true);
+            }
             calculateTimeAndCost();
         });
 
@@ -313,37 +326,31 @@
         document.getElementById('id_title').addEventListener('input', calculateTimeAndCost);
         document.getElementById('id_description').addEventListener('input', calculateTimeAndCost);
 
-
         const closeBtn1 = document.getElementById('modalClose1');
         const closeBtn2 = document.getElementById('modalClose2');
         const closeBtn3 = document.getElementById('modalDetailClose');
-        closeBtn1.addEventListener('click', () => {
-            const eventModal = document.getElementById('eventModal')
-            eventModal.style.display = 'none';
-        });
-        closeBtn2.addEventListener('click', () => {
-            const eventModal = document.getElementById('eventModal')
-            eventModal.style.display = 'none';
-        });
-        closeBtn3.addEventListener('click', () => {
-            const eventModal = document.getElementById('detailModal')
+        const eventModal = document.getElementById('eventModal');
+        const detailModal = document.getElementById('detailModal');
+
+
+        closeBtn1.addEventListener('click', function () {
             eventModal.style.display = 'none';
         });
 
-        function formatDateTime(dateTime) {
-            const options = {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                timeZoneName: 'short'
-            };
-            const dataFormatada = new Date(dateTime).toLocaleDateString('ru-RU', options);
-            return dataFormatada;
-        };
+        closeBtn2.addEventListener('click', function () {
+            eventModal.style.display = 'none';
+        });
+
+        closeBtn3.addEventListener('click', function () {
+            const detailModal = bootstrap.Modal.getInstance(document.getElementById('detailModal'));
+            if (detailModal) {
+                detailModal.hide(); // Закрываем модальное окно
+            } else {
+                console.error('Modal instance not found!');
+            }
+        });
+
+
         document.getElementById('delete-event-button').addEventListener('click', function () {
             const eventId = this.getAttribute('data-event-id');
             if (confirm('Хотите удалить событие?')) {
@@ -360,12 +367,9 @@
                     error: function (xhr, status, error) {
                         alert('Ошибка удаления!');
                     }
-
                 });
             }
         });
-
-
 
         document.getElementById('add-to-next-week').addEventListener('click', function () {
             const eventId = this.getAttribute('data-event-id-week');
@@ -407,8 +411,6 @@
             }
         });
 
-
-
         document.getElementById('change-event').addEventListener('click', function () {
             const eventId = this.getAttribute('data-event-id-change');
             if (!eventId) {
@@ -421,15 +423,32 @@
                 url: `/change_event/${eventId}/`,
                 type: 'GET',
                 success: function (response) {
-                    // Заполняем форму данными
+                    console.log("Полученные данные:", response);
 
+                    // Заполняем форму данными
                     document.getElementById('id_title').value = response.title;
                     document.getElementById('id_description').value = response.description;
-                    document.getElementById('id_start_time').value = response.start_time;
-                    document.getElementById('id_end_time').value = response.end_time;
                     document.getElementById('id_table').value = response.table_id;
                     document.getElementById('total-cost-display').innerText = response.total_cost.toString();
                     document.getElementById('total-time-display').innerText = response.total_time.toString();
+
+                    const startDate = new Date(response.start_time);
+                    const endDate = new Date(response.end_time);
+
+                    if (!isNaN(startDate.getTime())) {
+                        startTimePicker.setDate(startDate, true);
+                    } else {
+                        console.error("Некорректная дата начала:", response.start_time);
+                    }
+
+                    if (!isNaN(endDate.getTime())) {
+                        endTimePicker.setDate(endDate, true);
+                    } else {
+                        console.error("Некорректная дата окончания:", response.end_time);
+                    }
+
+                    // Пересчитываем стоимость и время
+                    calculateTimeAndCost();
 
                     // Открываем модальное окно
                     const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
@@ -440,9 +459,7 @@
                         e.preventDefault();
 
                         const formData = new FormData(this);
-                        for (let [key, value] of formData.entries()) {
-                            console.log(key, value);  // Логируем данные формы
-                        }
+                        console.log("Отправляемые данные формы:", Object.fromEntries(formData.entries()));
 
                         // Отправляем POST-запрос для сохранения изменений
                         $.ajax({
@@ -452,50 +469,40 @@
                             processData: false,
                             contentType: false,
                             headers: {
-                                'X-CSRFToken': getCookie('csrftoken')  // Добавляем CSRF-токен
+                                'X-CSRFToken': getCookie('csrftoken') // Добавляем CSRF-токен
                             },
                             success: function (response) {
                                 alert(response.message);
                                 eventModal.hide();
                                 window.location.reload();
                             },
-                            error: function (xhr, status, error) {
+                            error: function (xhr) {
                                 alert('Ошибка при сохранении изменений!');
                                 console.error(xhr.responseText);
                             }
                         });
                     };
                 },
-                error: function (xhr, status, error) {
+                error: function (xhr) {
                     alert('Ошибка при получении данных события!');
                     console.error(xhr.responseText);
                 }
             });
-
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
-        }
-
-            document.querySelector('form').addEventListener('submit', function (e) {
-                // Убедимся, что перед отправкой обновляются все значения
-                calculateTimeAndCost();
-            });
-
-
-
-
         });
 
+        function getCookie(name) {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                cookie = cookie.trim();
+                if (cookie.startsWith(name + '=')) {
+                    return decodeURIComponent(cookie.substring(name.length + 1));
+                }
+            }
+            return null;
+        }
+
+        document.querySelector('form').addEventListener('submit', function () {
+            calculateTimeAndCost();
+        });
     </script>
 {% endblock extrascripts %}

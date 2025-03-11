@@ -64,50 +64,64 @@ from django.db.models import Sum, Count
 from django.utils.timezone import now
 from decimal import Decimal
 
+from django.shortcuts import render
+from django.db.models import Sum
+from django.utils.timezone import now
+from decimal import Decimal
+
 class AdminStatsView(LoginRequiredMixin, TemplateView):
-    template_name = "calendarapp/admin_stats.html"
+   template_name = "calendarapp/admin_stats.html"
 
-    def get(self, request, *args, **kwargs):
-        today = now().date()
-        current_month = today.month
-        current_year = today.year
+   def get(self, request, *args, **kwargs):
+       today = now().date()
+       current_month = int(request.GET.get('month', today.month))
+       current_year = int(request.GET.get('year', today.year))
 
-        tables = Tables.objects.all()
-        table_stats = []
+       # Получение доступных месяцев и годов
+       months = list(range(1, 13))
+       years = list(range(today.year - 1, today.year + 1))  # например, с прошлого года до текущего
 
-        total_daily_income = Decimal(0)
-        total_monthly_income = Decimal(0)
+       tables = Tables.objects.all()
+       table_stats = []
 
-        for table in tables:
-            # Вычисление дохода за день и количество бронирований за день
-            daily_bookings = Event.objects.filter(
-                table=table, start_time__date=today
-            )
-            daily_income = daily_bookings.aggregate(total_daily_income=Sum('cost'))['total_daily_income'] or Decimal(0)
-            daily_booking_count = daily_bookings.count()
+       total_daily_income = 0
+       total_monthly_income = 0
 
-            # Вычисление дохода за месяц и количество бронирований за месяц
-            monthly_bookings = Event.objects.filter(
-                table=table, start_time__month=current_month, start_time__year=current_year
-            )
-            monthly_income = monthly_bookings.aggregate(total_monthly_income=Sum('cost'))['total_monthly_income'] or Decimal(0)
-            monthly_booking_count = monthly_bookings.count()
+       for table in tables:
+           # Вычисление дохода за день и количество бронирований за день
+           daily_bookings = Event.objects.filter(
+               table=table, start_time__date=today
+           )
+           daily_income = daily_bookings.aggregate(total_daily_income=Sum('total_cost'))['total_daily_income'] or Decimal(0)
+           daily_booking_count = daily_bookings.count()
 
-            total_daily_income += daily_income
-            total_monthly_income += monthly_income
+           # Вычисление дохода за месяц и количество бронирований за месяц
+           monthly_bookings = Event.objects.filter(
+               table=table,
+               start_time__month=current_month,
+               start_time__year=current_year
+           )
+           monthly_income = monthly_bookings.aggregate(total_monthly_income=Sum('total_cost'))['total_monthly_income'] or Decimal(0)
+           monthly_booking_count = monthly_bookings.count()
 
-            table_stats.append({
-                "table_number": table.id,
-                "daily_income": daily_income,
-                "monthly_income": monthly_income,
-                "total_bookings_today": daily_booking_count,
-                "total_bookings_month": monthly_booking_count,
-            })
+           total_daily_income += float(daily_income)
+           total_monthly_income += float(monthly_income)
 
-        context = {
-            "table_stats": table_stats,
-            "total_daily_income": total_daily_income,
-            "total_monthly_income": total_monthly_income,
-        }
-        return self.render_to_response(context)
+           table_stats.append({
+               "table_number": table.id,
+               "daily_income": daily_income,
+               "monthly_income": monthly_income,
+               "total_bookings_today": daily_booking_count,
+               "total_bookings_month": monthly_booking_count,
+           })
 
+       context = {
+           "table_stats": table_stats,
+           "total_daily_income": total_daily_income,
+           "total_monthly_income": total_monthly_income,
+           "months": months,
+           "years": years,
+           "current_month": current_month,
+           "current_year": current_year,
+       }
+       return self.render_to_response(context)
