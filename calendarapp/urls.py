@@ -41,4 +41,6 @@ urlpatterns = [
         name="completed_events",
     ),
     path("stats/", AdminStatsView.as_view(), name="admin_stats"),
+
+path('get_table_statistics/', views.get_table_statistics, name='get_table_statistics'),
 ]

@@ -3,9 +3,9 @@
 
 {% block title %}События{% endblock title %}
 {% block extracss %}
-<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.21/css/jquery.dataTables.css">
-
+    <link href="https://cdn.jsdelivr.net/npm/flowbite@3.1.2/dist/flowbite.min.css" rel="stylesheet"/>
 {% endblock extracss %}
+
 {% block breadcrumb %}
     <ul class="app-breadcrumb breadcrumb">
         <li class="breadcrumb-item"><i class="fa fa-home fa-lg"></i></li>
@@ -14,10 +14,32 @@
 {% endblock breadcrumb %}
 
 {% block content %}
-<h2>Статистика по столам</h2>
+    <div class="table-links mb-4">
+        <ul class="nav nav-pills">
+            <li class="nav-item">
+                <a class="nav-link active" href="#" data-table-id="" onclick="loadTableStatistics()">Все</a>
+            </li>
+            {% for table in table_stats %}
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-table-id="{{ table.table_number }}" onclick="loadTableStatistics({{ table.table_number }})">
+                        Стол {{ table.table_number }}
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
 
-<table>
-    <thead>
+    <div id="tableStatisticsContainer">
+        <!-- Здесь будет отображаться статистика -->
+    </div>
+
+    <div class="calendar-container mb-4">
+        <h3>Выберите дату:</h3>
+        <input type="date" id="statisticsDatePicker" class="form-control">
+    </div>
+
+    <table id="table-table">
+        <thead>
         <tr>
             <th>Стол</th>
             <th>Количество бронирований за день</th>
@@ -25,9 +47,9 @@
             <th>Дневной доход</th>
             <th>Месячный доход</th>
         </tr>
-    </thead>
-    <tbody>
-       {% for stat in table_stats %}
+        </thead>
+        <tbody>
+        {% for stat in table_stats %}
             <tr>
                 <td>{{ stat.table_number }}</td>
                 <td>{{ stat.total_bookings_today }}</td>
@@ -35,72 +57,90 @@
                 <td>{{ stat.daily_income }} ₽</td>
                 <td>{{ stat.monthly_income }} ₽</td>
             </tr>
-       {% endfor %}
-    </tbody>
-</table>
+        {% endfor %}
+        </tbody>
+    </table>
 
-    <h2>
-    Итого за сегодня: {{ total_daily_income }} ₽
-    </h2>
-    <h2>
-    Итого за месяц: {{ total_monthly_income }} ₽
-    </h2>
+    <h2>Итого за сегодня: {{ total_daily_income }} ₽</h2>
+    <h2>Итого за месяц: {{ total_monthly_income }} ₽</h2>
 
-
-<canvas id="bookingChart" width="400" height="200"></canvas>
+    <canvas id="bookingChart" width="400" height="200"></canvas>
 {% endblock content %}
+
 {% block extrascripts %}
-<script  src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
+    <script src="https://cdn.jsdelivr.net/npm/simple-datatables@9.0.3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <script>
-    $(document).ready(function() {
-        $('table').DataTable({
-            "language": {
-                "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Russian.json"
+        document.addEventListener('DOMContentLoaded', function () {
+            const datePicker = document.getElementById('statisticsDatePicker');
+            if (datePicker) {
+                datePicker.value = new Date().toISOString().split('T')[0];
+                datePicker.addEventListener('change', () => loadTableStatistics());
             }
-        });
-    });
-    
-        $(document).ready(function() {
-        $('#bookingTable').DataTable({
-            "language": {
-                "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Russian.json"
-            }
-        });
-    });
-</script>
-</script>
-<script>
 
-    var ctx = document.getElementById('bookingChart').getContext('2d');
-    var bookingChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: [{% for stat in table_stats %}"Стол {{ stat.table_number }}",{% endfor %}],
-            datasets: [{
-                label: 'Количество бронирований за день',
-                data: [{% for stat in table_stats %}{{ stat.total_bookings_today }},{% endfor %}],
-                backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 1
-            },{
-                label: 'Количество бронирований за месяц',
-                data: [{% for stat in table_stats %}{{ stat.total_bookings_month }},{% endfor %}],
-                backgroundColor: 'rgba(255, 99, 132, 0.6)',
-                borderColor: 'rgba(255, 99, 132, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
+            if (document.getElementById("table-table") && typeof simpleDatatables !== 'undefined') {
+                new simpleDatatables.DataTable("#table-table", {
+                    searchable: false,
+                    perPageSelect: false
+                });
             }
+
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+                    this.classList.add('active');
+                    const tableId = this.getAttribute('data-table-id');
+                    loadTableStatistics(tableId);
+                });
+            });
+
+            loadTableStatistics();
+        });
+
+        function loadTableStatistics(tableId = '') {
+            const selectedDate = document.getElementById('statisticsDatePicker').value;
+
+            fetch(`/get_table_statistics/?table_id=${tableId}&date=${selectedDate}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Ошибка сети или сервера');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const container = document.getElementById('tableStatisticsContainer');
+                    if (container) {
+                        if (Array.isArray(data)) {
+                            container.innerHTML = '<h4>Общая статистика</h4>';
+                            data.forEach(stat => {
+                                container.innerHTML += `
+                                    <p><strong>Стол ${stat.table_number}</strong></p>
+                                    <p>Количество бронирований: ${stat.total_events}</p>
+                                    <p>Общий доход: ${stat.total_income} ₽</p>
+                                    <p>Среднее время бронирования: ${stat.average_booking_time} часов</p>
+                                    <p>Общее время бронирования: ${stat.sum_time} часов</p>
+                                    <hr>
+                                `;
+                            });
+                        } else {
+                            container.innerHTML = `
+                                <h4>Статистика ${data.table_number}</h4>
+                                <p>Дата: ${selectedDate}</p>
+                                <p>Количество бронирований: ${data.total_events}</p>
+                                <p>Общий доход: ${data.total_income} ₽</p>
+                                <p>Среднее время бронирования: ${data.average_booking_time} часов</p>
+                                <p>Общее время бронирования: ${data.sum_time} часов</p>
+                            `;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка при загрузке статистики:', error);
+                    document.getElementById('tableStatisticsContainer').innerHTML =
+                        `<p class="text-danger">Ошибка: ${error.message}</p>`;
+                });
         }
-    });
-</script>
-
+    </script>
 {% endblock %}

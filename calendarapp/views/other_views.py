@@ -2,13 +2,15 @@
 
 import json
 from django.contrib import messages
-from django.utils.dateparse import parse_datetime
+from django.db.models import Sum, DurationField, F, Avg
+from django.db.models.functions import Cast
+from django.utils.dateparse import parse_datetime, parse_date
 from django.shortcuts import render, redirect
 from django.http import HttpResponseRedirect
 from django.utils.timezone import now
 from django.views import generic
 from django.utils.safestring import mark_safe
-from datetime import timedelta, datetime, date
+from datetime import timedelta, datetime, date, time
 import calendar
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -327,3 +329,51 @@ def change_event(request, event_id):
             return JsonResponse({'message': 'Ошибка при изменении брони!', 'errors': form.errors}, status=400)
 
     return JsonResponse({'message': 'Метод не поддерживается!'}, status=405)
+
+
+
+from django.utils.dateparse import parse_date
+
+
+def get_table_statistics(request):
+    table_id = request.GET.get('table_id', '')  # Получаем ID стола
+    date_str = request.GET.get('date', '')  # Получаем дату
+
+    # Проверяем дату
+    date_booking = parse_date(date_str)
+    if not date_booking:
+        return JsonResponse({'error': 'Некорректная дата'}, status=400)
+
+    start_of_day = datetime.combine(date_booking, time.min)
+    end_of_day = datetime.combine(date_booking, time.max)
+
+    # Фильтруем события
+    filters = {"start_time__gte": start_of_day, "start_time__lte": end_of_day}
+
+    if table_id:
+        filters["table_id"] = table_id  # Добавляем фильтр по столу
+
+    events = Event.objects.filter(**filters)
+
+    if not events.exists():
+        return JsonResponse({
+            "table_number": table_id if table_id else "",
+            "total_events": 0,
+            "total_income": 0,
+            "average_booking_time": 0,
+            'sum_time': 0
+
+        })
+    # Подсчёт статистики
+    total_income = sum(event.total_cost for event in events)
+    total_events = events.count()
+    avg_time = round(events.aggregate(avg_time=Avg('total_time'))['avg_time'], 2) or 0
+    sum_time = sum(event.total_time for event in events) or 0
+
+    return JsonResponse({
+        "table_number": table_id if table_id else "всех столов",
+        "total_events": total_events,
+        "total_income": total_income,
+        "average_booking_time": avg_time,
+        "sum_time": sum_time
+    })
