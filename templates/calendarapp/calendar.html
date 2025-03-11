@@ -5,6 +5,8 @@
 {% block extracss %}
     <link href="{% static 'calender/main.css' %}" rel="stylesheet"/>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
 {% endblock extracss %}
 
 {% block breadcrumb %}
@@ -140,6 +142,13 @@
                                         <label for="message-text" class="col-form-label">Конец брони:</label>
                                         <p id="end_event_detail">
                                     </div>
+                                    <div class="form-group">
+                                        <label for="message-text" class="col-form-label">Забронирован стол:
+                                            №пше </label>
+                                        <span id="table_detail"></span>
+                                    </div>
+
+
                                 </div>
                                 <div class="modal-footer">
                                     <button id="change-event" data-event-id-change="" type="button"
@@ -172,8 +181,10 @@
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="{% static 'calender/main.js' %}"></script>
-        <script src="https://npmcdn.com/flatpickr/dist/l10n/ru.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/ru.js"></script>
     <script>
+        // Helper functions for formatting dates
         function formatDateTime(dateTime) {
             return new Date(dateTime).toLocaleString('ru-RU', {
                 weekday: 'long',
@@ -194,12 +205,11 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
+            // Calendar initialization
+            const calendarEl = document.getElementById('calendar');
+            const today = new Date();
 
-
-            var calendarEl = document.getElementById('calendar');
-            var today = new Date();
-
-            var calendar = new FullCalendar.Calendar(calendarEl, {
+            const calendar = new FullCalendar.Calendar(calendarEl, {
                 headerToolbar: {
                     left: 'prev,next today',
                     center: 'title',
@@ -221,8 +231,11 @@
                 navLinks: true,
                 selectable: true,
                 selectMirror: true,
+                // Event selection logic
                 select: function (arg) {
-                    document.getElementById('eventModal').style.display = 'block';
+                    const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
+                    eventModal.show();
+
                     document.getElementById('id_start_time').value = formatDateForDjango(arg.start);
                     document.getElementById('id_end_time').value = formatDateForDjango(arg.end);
 
@@ -232,20 +245,30 @@
 
                     calendar.unselect();
                 },
+                // Event click logic
                 eventClick: function (info) {
                     const event = info.event;
+
+                    // Populate detail modal with event information
                     document.getElementById('title_event_detail').textContent = event.title;
                     document.getElementById('description_event_detail').textContent = event.extendedProps.description;
                     document.getElementById('start_event_detail').textContent = formatDateTime(event.start);
                     document.getElementById('end_event_detail').textContent = formatDateTime(event.end);
+                    document.getElementById('table_detail').textContent = event.extendedProps.table_number;
+
+                    // Set data attributes for action buttons
                     document.getElementById('delete-event-button').setAttribute('data-event-id', event.id);
                     document.getElementById('add-to-next-week').setAttribute('data-event-id-week', event.id);
                     document.getElementById('add-to-next-day').setAttribute('data-event-id-day', event.id);
                     document.getElementById('change-event').setAttribute('data-event-id-change', event.id);
+
                     const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
                     detailModal.show();
+
+                    // Change event button click handler
                     document.getElementById('change-event').onclick = function () {
-                        openEditModal(event)
+                        detailModal.hide();
+                        openEditModal(event);
                     };
                 },
                 editable: true,
@@ -253,12 +276,188 @@
                 events: {{ events|safe }},
             });
 
-
             calendar.setOption('locale', 'ru');
             calendar.render();
+
+            // Modal close buttons event listeners
+            document.getElementById('modalClose1').addEventListener('click', () => {
+                const eventModal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
+                if (eventModal) {
+                    eventModal.hide();
+                }
+            });
+
+            document.getElementById('modalClose2').addEventListener('click', () => {
+                const eventModal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
+                if (eventModal) {
+                    eventModal.hide();
+                }
+            });
+
+            document.getElementById('modalDetailClose').addEventListener('click', () => {
+                const detailModal = bootstrap.Modal.getInstance(document.getElementById('detailModal'));
+                if (detailModal) {
+                    detailModal.hide();
+                }
+            });
+
+            // Delete event button click handler
+            document.getElementById('delete-event-button').addEventListener('click', function () {
+                const eventId = this.getAttribute('data-event-id');
+                if (confirm('Хотите удалить событие?')) {
+                    $.ajax({
+                        url: `/delete_event/${eventId}/`,
+                        type: 'POST',
+                        data: {
+                            csrfmiddlewaretoken: '{{ csrf_token }}',
+                        },
+                        success: function (response) {
+                            alert(response.message);
+                            calendar.refetchEvents(); // Refresh events after deletion
+                        },
+                        error: function (xhr, status, error) {
+                            alert('Ошибка удаления!');
+                        }
+                    });
+                }
+            });
+
+            // Add to next week button click handler
+            document.getElementById('add-to-next-week').addEventListener('click', function () {
+                const eventId = this.getAttribute('data-event-id-week');
+                if (confirm('Хотите добавить событие на следующую неделю?')) {
+                    $.ajax({
+                        url: `/next_week/${eventId}/`,
+                        type: 'POST',
+                        data: {
+                            csrfmiddlewaretoken: '{{ csrf_token }}',
+                        },
+                        success: function (response) {
+                            alert(response.message);
+                            calendar.refetchEvents(); // Refresh events after adding to next week
+                        },
+                        error: function (xhr, status, error) {
+                            alert('Ошибка!');
+                        }
+                    });
+                }
+            });
+
+            // Add to next day button click handler
+            document.getElementById('add-to-next-day').addEventListener('click', function () {
+                const eventId = this.getAttribute('data-event-id-day');
+                if (confirm('Хотите добавить событие на следующий день?')) {
+                    $.ajax({
+                        url: `/next_day/${eventId}/`,
+                        type: 'POST',
+                        data: {
+                            csrfmiddlewaretoken: '{{ csrf_token }}',
+                        },
+                        success: function (response) {
+                            alert(response.message);
+                            calendar.refetchEvents(); // Refresh events after adding to next day
+                        },
+                        error: function (xhr, status, error) {
+                            alert('Ошибка!');
+                        }
+                    });
+                }
+            });
+
+            // Change event button click handler
+            document.getElementById('change-event').addEventListener('click', function () {
+                const eventId = this.getAttribute('data-event-id-change');
+                if (!eventId) {
+                    console.error('Event ID is missing!');
+                    return;
+                }
+
+                // Fetch event data for editing
+                $.ajax({
+                    url: `/change_event/${eventId}/`,
+                    type: 'GET',
+                    success: function (response) {
+                        console.log("Полученные данные:", response);
+
+                        // Populate form fields with event data
+                        document.getElementById('id_title').value = response.title;
+                        document.getElementById('id_description').value = response.description;
+                        document.getElementById('id_table').value = response.table_id;
+                        document.getElementById('total-cost-display').innerText = response.total_cost.toString();
+                        document.getElementById('total-time-display').innerText = response.total_time.toString();
+
+                        const startDate = new Date(response.start_time);
+                        const endDate = new Date(response.end_time);
+
+                        if (!isNaN(startDate.getTime())) {
+                            startTimePicker.setDate(startDate, true);
+                        } else {
+                            console.error("Некорректная дата начала:", response.start_time);
+                        }
+
+                        if (!isNaN(endDate.getTime())) {
+                            endTimePicker.setDate(endDate, true);
+                        } else {
+                            console.error("Некорректная дата окончания:", response.end_time);
+                        }
+
+                        // Recalculate time and cost
+                        calculateTimeAndCost();
+
+                        // Open the event modal for editing
+                        const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
+                        eventModal.show();
+
+                        // Form submit handler
+                        document.querySelector('#eventModal form').onsubmit = function (e) {
+                            e.preventDefault();
+
+                            const formData = new FormData(this);
+                            console.log("Отправляемые данные формы:", Object.fromEntries(formData.entries()));
+
+                            // Send POST request to save changes
+                            $.ajax({
+                                url: `/change_event/${eventId}/`,
+                                type: 'POST',
+                                data: formData,
+                                processData: false,
+                                contentType: false,
+                                headers: {
+                                    'X-CSRFToken': getCookie('csrftoken') // Add CSRF-token
+                                },
+                                success: function (response) {
+                                    alert(response.message);
+                                    eventModal.hide();
+                                    calendar.refetchEvents(); // Refresh events after update
+                                },
+                                error: function (xhr) {
+                                    alert('Ошибка при сохранении изменений!');
+                                    console.error(xhr.responseText);
+                                }
+                            });
+                        };
+                    },
+                    error: function (xhr) {
+                        alert('Ошибка при получении данных события!');
+                        console.error(xhr.responseText);
+                    }
+                });
+            });
+
+            // Helper function to get CSRF-token
+            function getCookie(name) {
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith(name + '=')) {
+                        return cookie.substring(name.length + 1);
+                    }
+                }
+                return null;
+            }
         });
 
-        // Flatpickr настройки
+        // Flatpickr settings
         const startTimePicker = flatpickr("#id_start_time", {
             enableTime: true,
             dateFormat: "Y-m-d H:i",
@@ -277,6 +476,7 @@
             onChange: calculateTimeAndCost
         });
 
+        // Calculate time and cost function
         function calculateTimeAndCost() {
             const startTime = startTimePicker.selectedDates[0];
             const endTime = endTimePicker.selectedDates[0];
@@ -302,200 +502,25 @@
             document.getElementById('total-cost').value = parseInt(totalCost);
         }
 
-        // Сохранение выбранного времени при открытии модального окна
+        // Save selected time when opening the modal
         document.getElementById('eventModal').addEventListener('shown.bs.modal', function () {
-            if (!startTimePicker.selectedDates[0]) startTimePicker.setDate("00:00", true);
-            if (!endTimePicker.selectedDates[0]) endTimePicker.setDate("00:30", true);
+            if (!startTimePicker.selectedDates[0]) {
+                let today = new Date();
+                today.setHours(0, 0, 0, 0);  // Set to midnight
+                startTimePicker.setDate(today, true);
+            }
+
+            if (!endTimePicker.selectedDates[0]) {
+                let today = new Date();
+                today.setHours(0, 30, 0, 0);  // Set to 00:30
+                endTimePicker.setDate(today, true);
+            }
             calculateTimeAndCost();
         });
 
+        // Recalculate time and cost on input change
         document.getElementById('id_table').addEventListener('change', calculateTimeAndCost);
         document.getElementById('id_title').addEventListener('input', calculateTimeAndCost);
         document.getElementById('id_description').addEventListener('input', calculateTimeAndCost);
-
-
-        const closeBtn1 = document.getElementById('modalClose1');
-        const closeBtn2 = document.getElementById('modalClose2');
-        const closeBtn3 = document.getElementById('modalDetailClose');
-        closeBtn1.addEventListener('click', () => {
-            const eventModal = document.getElementById('eventModal')
-            eventModal.style.display = 'none';
-        });
-        closeBtn2.addEventListener('click', () => {
-            const eventModal = document.getElementById('eventModal')
-            eventModal.style.display = 'none';
-        });
-        closeBtn3.addEventListener('click', () => {
-            const eventModal = document.getElementById('detailModal')
-            eventModal.style.display = 'none';
-        });
-
-        function formatDateTime(dateTime) {
-            const options = {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                timeZoneName: 'short'
-            };
-            const dataFormatada = new Date(dateTime).toLocaleDateString('ru-RU', options);
-            return dataFormatada;
-        };
-        document.getElementById('delete-event-button').addEventListener('click', function () {
-            const eventId = this.getAttribute('data-event-id');
-            if (confirm('Хотите удалить событие?')) {
-                $.ajax({
-                    url: `/delete_event/${eventId}/`,
-                    type: 'POST',
-                    data: {
-                        csrfmiddlewaretoken: '{{ csrf_token }}',
-                    },
-                    success: function (response) {
-                        alert(response.message);
-                        window.location.reload();
-                    },
-                    error: function (xhr, status, error) {
-                        alert('Ошибка удаления!');
-                    }
-
-                });
-            }
-        });
-
-
-
-        document.getElementById('add-to-next-week').addEventListener('click', function () {
-            const eventId = this.getAttribute('data-event-id-week');
-            if (confirm('Хотите добавить событие на следующую неделю?')) {
-                $.ajax({
-                    url: `/next_week/${eventId}/`,
-                    type: 'POST',
-                    data: {
-                        csrfmiddlewaretoken: '{{ csrf_token }}',
-                    },
-                    success: function (response) {
-                        alert(response.message);
-                        window.location.reload();
-                    },
-                    error: function (xhr, status, error) {
-                        alert('Ошибка!');
-                    }
-                });
-            }
-        });
-
-        document.getElementById('add-to-next-day').addEventListener('click', function () {
-            const eventId = this.getAttribute('data-event-id-day');
-            if (confirm('Хотите добавить событие на следующий день?')) {
-                $.ajax({
-                    url: `/next_day/${eventId}/`,
-                    type: 'POST',
-                    data: {
-                        csrfmiddlewaretoken: '{{ csrf_token }}',
-                    },
-                    success: function (response) {
-                        alert(response.message);
-                        window.location.reload();
-                    },
-                    error: function (xhr, status, error) {
-                        alert('Ошибка!');
-                    }
-                });
-            }
-        });
-
-
-
-        document.getElementById('change-event').addEventListener('click', function () {
-            const eventId = this.getAttribute('data-event-id-change');
-            if (!eventId) {
-                console.error('Event ID is missing!');
-                return;
-            }
-
-            // Отправляем GET-запрос для получения данных события
-            $.ajax({
-                url: `/change_event/${eventId}/`,
-                type: 'GET',
-                success: function (response) {
-                    // Заполняем форму данными
-
-                    document.getElementById('id_title').value = response.title;
-                    document.getElementById('id_description').value = response.description;
-                    document.getElementById('id_start_time').value = response.start_time;
-                    document.getElementById('id_end_time').value = response.end_time;
-                    document.getElementById('id_table').value = response.table_id;
-                    document.getElementById('total-cost-display').innerText = response.total_cost.toString();
-                    document.getElementById('total-time-display').innerText = response.total_time.toString();
-
-                    // Открываем модальное окно
-                    const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
-                    eventModal.show();
-
-                    // Обработчик отправки формы
-                    document.querySelector('#eventModal form').onsubmit = function (e) {
-                        e.preventDefault();
-
-                        const formData = new FormData(this);
-                        for (let [key, value] of formData.entries()) {
-                            console.log(key, value);  // Логируем данные формы
-                        }
-
-                        // Отправляем POST-запрос для сохранения изменений
-                        $.ajax({
-                            url: `/change_event/${eventId}/`,
-                            type: 'POST',
-                            data: formData,
-                            processData: false,
-                            contentType: false,
-                            headers: {
-                                'X-CSRFToken': getCookie('csrftoken')  // Добавляем CSRF-токен
-                            },
-                            success: function (response) {
-                                alert(response.message);
-                                eventModal.hide();
-                                window.location.reload();
-                            },
-                            error: function (xhr, status, error) {
-                                alert('Ошибка при сохранении изменений!');
-                                console.error(xhr.responseText);
-                            }
-                        });
-                    };
-                },
-                error: function (xhr, status, error) {
-                    alert('Ошибка при получении данных события!');
-                    console.error(xhr.responseText);
-                }
-            });
-
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
-        }
-
-            document.querySelector('form').addEventListener('submit', function (e) {
-                // Убедимся, что перед отправкой обновляются все значения
-                calculateTimeAndCost();
-            });
-
-
-
-
-        });
-
     </script>
-{% endblock extrascripts %}
+{% endblock %}

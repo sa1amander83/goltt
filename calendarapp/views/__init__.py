@@ -10,6 +10,7 @@ from .other_views import (
     delete_event,
     next_week,
     next_day, change_event,
+    get_table_statistics,
 )
 
 
@@ -29,6 +30,7 @@ __all__ = [
     next_week,
     next_day,
     change_event,
+
 ]
 
 
