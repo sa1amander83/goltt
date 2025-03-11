@@ -360,20 +360,20 @@ def get_table_statistics(request):
             "table_number": table_id if table_id else "",
             "total_events": 0,
             "total_income": 0,
-            "average_booking_time": 0,
+            # "average_booking_time": 0,
             'sum_time': 0
 
         })
     # Подсчёт статистики
     total_income = sum(event.total_cost for event in events)
     total_events = events.count()
-    avg_time = round(events.aggregate(avg_time=Avg('total_time'))['avg_time'], 2) or 0
+    # avg_time = round(events.aggregate(avg_time=Avg('total_time'))['avg_time'], 2) or 0
     sum_time = sum(event.total_time for event in events) or 0
 
     return JsonResponse({
         "table_number": table_id if table_id else "всех столов",
         "total_events": total_events,
         "total_income": total_income,
-        "average_booking_time": avg_time,
+        # "average_booking_time": avg_time,
         "sum_time": sum_time
     })

@@ -33,7 +33,7 @@
         <!-- Здесь будет отображаться статистика -->
     </div>
 
-    <div class="calendar-container mb-4">
+    <div class="calendar-container mb-4 w-25">
         <h3>Выберите дату:</h3>
         <input type="date" id="statisticsDatePicker" class="form-control">
     </div>
@@ -119,7 +119,7 @@
                                     <p><strong>Стол ${stat.table_number}</strong></p>
                                     <p>Количество бронирований: ${stat.total_events}</p>
                                     <p>Общий доход: ${stat.total_income} ₽</p>
-                                    <p>Среднее время бронирования: ${stat.average_booking_time} часов</p>
+{#                                    <p>Среднее время бронирования: ${stat.average_booking_time} часов</p>#}
                                     <p>Общее время бронирования: ${stat.sum_time} часов</p>
                                     <hr>
                                 `;
@@ -130,7 +130,7 @@
                                 <p>Дата: ${selectedDate}</p>
                                 <p>Количество бронирований: ${data.total_events}</p>
                                 <p>Общий доход: ${data.total_income} ₽</p>
-                                <p>Среднее время бронирования: ${data.average_booking_time} часов</p>
+{#                                <p>Среднее время бронирования: ${data.average_booking_time} часов</p>#}
                                 <p>Общее время бронирования: ${data.sum_time} часов</p>
                             `;
                         }
