@@ -144,15 +144,15 @@
                                     </div>
                                     <div class="form-group">
                                         <label for="message-text" class="col-form-label">Забронирован стол:
-                                            №пше </label>
+                                            № </label>
                                         <span id="table_detail"></span>
                                     </div>
 
 
                                 </div>
                                 <div class="modal-footer">
-                                    <button id="change-event" data-event-id-change="" type="button"
-                                            class="btn btn-info">Изменить
+                                    <button type="button" class="btn btn-primary" id="change-event"
+                                            data-event-id-change="">Изменить
                                     </button>
 
 
@@ -175,7 +175,6 @@
         </div>
     </div>
 {% endblock content %}
-
 
 {% block extrascripts %}
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
@@ -204,12 +203,96 @@
                 `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:00`;
         }
 
+        // Global variables
+        let calendar;
+        let startTimePicker;
+        let endTimePicker;
+
+        // openEditModal function (declared globally)
+        function openEditModal(event) {
+            const eventId = event.id;
+            if (!eventId) {
+                console.error('Event ID is missing!');
+                return;
+            }
+
+            // Fetch event data for editing
+            $.ajax({
+                url: `/change_event/${eventId}/`,
+                type: 'GET',
+                success: function (response) {
+                    console.log("Полученные данные:", response);
+
+                    // Populate form fields with event data
+                    document.getElementById('id_title').value = response.title;
+                    document.getElementById('id_description').value = response.description;
+                    document.getElementById('id_table').value = response.table_id;
+                    document.getElementById('total-cost-display').innerText = response.total_cost.toString();
+                    document.getElementById('total-time-display').innerText = response.total_time.toString();
+
+                    const startDate = new Date(response.start_time);
+                    const endDate = new Date(response.end_time);
+
+                    if (!isNaN(startDate.getTime())) {
+                        startTimePicker.setDate(startDate, true);
+                    } else {
+                        console.error("Некорректная дата начала:", response.start_time);
+                    }
+
+                    if (!isNaN(endDate.getTime())) {
+                        endTimePicker.setDate(endDate, true);
+                    } else {
+                        console.error("Некорректная дата окончания:", response.end_time);
+                    }
+
+                    updateAvailableTables(startDate, endDate);
+
+                    // Open the event modal for editing
+                    const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
+                    eventModal.show();
+
+                    // Form submit handler
+                    document.querySelector('#eventModal form').onsubmit = function (e) {
+                        e.preventDefault();
+
+                        const formData = new FormData(this);
+                        console.log("Отправляемые данные формы:", Object.fromEntries(formData.entries()));
+
+                        // Send POST request to save changes
+                        $.ajax({
+                            url: `/change_event/${eventId}/`,
+                            type: 'POST',
+                            data: formData,
+                            processData: false,
+                            contentType: false,
+                            headers: {
+                                'X-CSRFToken': getCookie('csrftoken') // Add CSRF-token
+                            },
+                            success: function (response) {
+                                alert(response.message);
+                                eventModal.hide();
+                                calendar.refetchEvents(); // Refresh events after update
+                            },
+                            error: function (xhr) {
+                                alert('Ошибка при сохранении изменений!');
+                                console.error(xhr.responseText);
+                            }
+                        });
+                    };
+                },
+                error: function (xhr) {
+                    alert('Ошибка при получении данных события!');
+                    console.error(xhr.responseText);
+                }
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             // Calendar initialization
             const calendarEl = document.getElementById('calendar');
             const today = new Date();
 
-            const calendar = new FullCalendar.Calendar(calendarEl, {
+            calendar = new FullCalendar.Calendar(calendarEl, {
                 headerToolbar: {
                     left: 'prev,next today',
                     center: 'title',
@@ -241,6 +324,9 @@
 
                     startTimePicker.setDate(arg.start, true);
                     endTimePicker.setDate(arg.end, true);
+                    if (startTimePicker.selectedDates[0] && endTimePicker.selectedDates[0]) {
+                        updateAvailableTables(startTimePicker.selectedDates[0], endTimePicker.selectedDates[0]);
+                    }
                     calculateTimeAndCost();
 
                     calendar.unselect();
@@ -312,7 +398,9 @@
                             csrfmiddlewaretoken: '{{ csrf_token }}',
                         },
                         success: function (response) {
+
                             alert(response.message);
+                            window.location.reload()
                             calendar.refetchEvents(); // Refresh events after deletion
                         },
                         error: function (xhr, status, error) {
@@ -320,9 +408,10 @@
                         }
                     });
                 }
+                window.location.reload()
             });
 
-            // Add to next week button click handler
+
             document.getElementById('add-to-next-week').addEventListener('click', function () {
                 const eventId = this.getAttribute('data-event-id-week');
                 if (confirm('Хотите добавить событие на следующую неделю?')) {
@@ -333,17 +422,26 @@
                             csrfmiddlewaretoken: '{{ csrf_token }}',
                         },
                         success: function (response) {
+
                             alert(response.message);
-                            calendar.refetchEvents(); // Refresh events after adding to next week
+                            window.location.reload()
+                            // Закрытие окна деталей события
+                            const detailModal = bootstrap.Modal.getInstance(document.getElementById('detailModal'));
+                            if (detailModal) {
+                                detailModal.hide();
+                            }
+
+                            calendar.refetchEvents(); // Обновление календаря
                         },
                         error: function (xhr, status, error) {
                             alert('Ошибка!');
                         }
                     });
                 }
+
             });
 
-            // Add to next day button click handler
+// Add to next day button click handler
             document.getElementById('add-to-next-day').addEventListener('click', function () {
                 const eventId = this.getAttribute('data-event-id-day');
                 if (confirm('Хотите добавить событие на следующий день?')) {
@@ -355,14 +453,23 @@
                         },
                         success: function (response) {
                             alert(response.message);
-                            calendar.refetchEvents(); // Refresh events after adding to next day
+                            window.location.reload()
+                            // Закрытие окна деталей события
+                            const detailModal = bootstrap.Modal.getInstance(document.getElementById('detailModal'));
+                            if (detailModal) {
+                                detailModal.hide();
+                            }
+
+                            calendar.refetchEvents(); // Обновление календаря
                         },
                         error: function (xhr, status, error) {
                             alert('Ошибка!');
                         }
                     });
                 }
+                window.location.reload()
             });
+
 
             // Change event button click handler
             document.getElementById('change-event').addEventListener('click', function () {
@@ -413,9 +520,7 @@
                             e.preventDefault();
 
                             const formData = new FormData(this);
-                            console.log("Отправляемые данные формы:", Object.fromEntries(formData.entries()));
 
-                            // Send POST request to save changes
                             $.ajax({
                                 url: `/change_event/${eventId}/`,
                                 type: 'POST',
@@ -442,6 +547,7 @@
                         console.error(xhr.responseText);
                     }
                 });
+                window.location.reload()
             });
 
             // Helper function to get CSRF-token
@@ -457,23 +563,32 @@
             }
         });
 
-        // Flatpickr settings
-        const startTimePicker = flatpickr("#id_start_time", {
+        startTimePicker = flatpickr("#id_start_time", {
             enableTime: true,
             dateFormat: "Y-m-d H:i",
             time_24hr: true,
             minuteIncrement: 30,
             locale: "ru",
-            onChange: calculateTimeAndCost
+            onChange: function () {
+                if (startTimePicker.selectedDates[0] && endTimePicker.selectedDates[0]) {
+                    updateAvailableTables(startTimePicker.selectedDates[0], endTimePicker.selectedDates[0]);
+                }
+                calculateTimeAndCost();
+            }
         });
 
-        const endTimePicker = flatpickr("#id_end_time", {
+        endTimePicker = flatpickr("#id_end_time", {
             enableTime: true,
             dateFormat: "Y-m-d H:i",
             time_24hr: true,
             minuteIncrement: 30,
             locale: "ru",
-            onChange: calculateTimeAndCost
+            onChange: function () {
+                if (startTimePicker.selectedDates[0] && endTimePicker.selectedDates[0]) {
+                    updateAvailableTables(startTimePicker.selectedDates[0], endTimePicker.selectedDates[0]);
+                }
+                calculateTimeAndCost();
+            }
         });
 
         // Calculate time and cost function
@@ -488,9 +603,11 @@
             const roundedHours = Math.round(diffHours * 2) / 2;
 
             const tableSelect = document.getElementById('id_table');
+            if (!tableSelect || !tableSelect.options || tableSelect.options.length === 0 || tableSelect.selectedIndex === -1) return;
             const selectedOption = tableSelect.options[tableSelect.selectedIndex];
-            const pricePerHour = parseFloat(selectedOption.getAttribute('data-price-hour')) || 0;
-            const pricePerHalfHour = parseFloat(selectedOption.getAttribute('data-price-half-hour')) || 0;
+            if (!selectedOption || !selectedOption.dataset) return;
+            const pricePerHour = parseFloat(selectedOption.dataset.priceHour) || 0;
+            const pricePerHalfHour = parseFloat(selectedOption.dataset.priceHalfHour) || 0;
 
             const totalCost = Math.floor(roundedHours) * pricePerHour +
                 (roundedHours % 1 !== 0 ? pricePerHalfHour : 0);
@@ -500,6 +617,48 @@
 
             document.getElementById('total-time').value = roundedHours;
             document.getElementById('total-cost').value = parseInt(totalCost);
+        }
+
+        function updateAvailableTables(startTime, endTime) {
+            const tableSelect = document.getElementById('id_table');
+            tableSelect.disabled = true;
+            tableSelect.innerHTML = '<option>Загрузка...</option>';
+
+            $.ajax({
+                url: window.location.pathname,
+                method: 'GET',
+                data: {
+                    'ajax': 'get_available_tables',
+                    'start_time': startTime.toISOString(),
+                    'end_time': endTime.toISOString()
+                },
+                success: function (response) {
+                    tableSelect.innerHTML = '';
+                    tableSelect.disabled = false;
+
+                    if (response.tables && response.tables.length > 0) {
+                        response.tables.forEach(table => {
+                            const option = document.createElement('option');
+                            option.value = table.id;
+                            option.textContent = `Стол №${table.number} (${table.table_description || 'Без описания'})`;
+                            option.dataset.priceHour = table.price_per_hour;
+                            option.dataset.priceHalfHour = table.price_per_half_hour;
+                            tableSelect.appendChild(option);
+                        });
+                    } else {
+                        const option = document.createElement('option');
+                        option.textContent = 'Нет доступных столов';
+                        tableSelect.appendChild(option);
+                        tableSelect.disabled = true;
+                    }
+                    calculateTimeAndCost();
+                },
+                error: function (xhr, status, error) {
+                    console.error("Ошибка при загрузке доступных столов:", error);
+                    tableSelect.innerHTML = '<option>Ошибка загрузки столов</option>';
+                    tableSelect.disabled = true;
+                }
+            });
         }
 
         // Save selected time when opening the modal
@@ -515,12 +674,9 @@
                 today.setHours(0, 30, 0, 0);  // Set to 00:30
                 endTimePicker.setDate(today, true);
             }
-            calculateTimeAndCost();
-        });
 
-        // Recalculate time and cost on input change
-        document.getElementById('id_table').addEventListener('change', calculateTimeAndCost);
-        document.getElementById('id_title').addEventListener('input', calculateTimeAndCost);
-        document.getElementById('id_description').addEventListener('input', calculateTimeAndCost);
+            calculateTimeAndCost();
+
+        });
     </script>
 {% endblock %}

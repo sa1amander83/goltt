@@ -142,8 +142,11 @@ TABLE_COLORS = {
 }
 
 logger = logging.getLogger(__name__)
-class CalendarViewNew(generic.View):
-# class CalendarViewNew(LoginRequiredMixin, generic.View):
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
+
+class CalendarViewNew(LoginRequiredMixin, generic.View):
+    # class CalendarViewNew(LoginRequiredMixin, generic.View):
     login_url = "accounts:signin"
     template_name = "calendarapp/calendar.html"
     form_class = EventForm
@@ -153,19 +156,20 @@ class CalendarViewNew(generic.View):
         current_time = now()
         today_start = datetime.combine(date.today(), datetime.min.time())
         today_end = today_start + timedelta(days=1)
-
+        if request.GET.get('ajax') == 'get_available_tables':
+            return self.get_available_tables(request)
         # Загружаем события с учетом связей, чтобы избежать лишних запросов
-        events_month = Event.objects.filter(
-            start_time__month=date.today().month,
-            start_time__year=date.today().year
-        ).select_related("table")
-
+        # events_month = Event.objects.filter(
+        #     start_time__month=date.today().month,
+        #     start_time__year=date.today().year
+        # ).select_related("table")
+        events_all = Event.objects.all().select_related("table")
         # Текущие бронирования
-        current_bookings = events_month.filter(start_time__lte=current_time, end_time__gte=current_time)
+        current_bookings = events_all.filter(start_time__lte=current_time, end_time__gte=current_time)
 
         # Подготовка списка событий
         event_list = []
-        for event in events_month:
+        for event in events_all:
             table_id = event.table.id if event.table else None
             color = TABLE_COLORS.get(table_id, "#3498db")
             event_list.append({
@@ -188,17 +192,24 @@ class CalendarViewNew(generic.View):
         context = {
             "form": form,
             "events": json.dumps(event_list),
-            "events_month": events_month,
+            "events_month": events_all,
             "current_bookings": current_bookings,
             "tables": tables_with_prices,
         }
         return render(request, self.template_name, context)
 
+    # @method_decorator(login_required, name='dispatch') # Раскомментируйте для требования авторизации
     def post(self, request, *args, **kwargs):
         form = self.form_class(request.POST)
         if form.is_valid():
             event = form.save(commit=False)
-            event.user = request.user
+
+            # Проверка аутентификации пользователя
+            if not request.user.is_authenticated:
+                messages.error(request, "Для создания события необходимо войти в систему.")
+                return redirect("calendarapp:calendar")
+
+            event.user = request.user  # Устанавливаем пользователя
 
             try:
                 table_id = request.POST.get("table")
@@ -219,9 +230,9 @@ class CalendarViewNew(generic.View):
 
             # Проверка на пересечение бронирований
             if Event.objects.filter(
-                table=table,
-                start_time__lt=end_time,
-                end_time__gt=start_time
+                    table=table,
+                    start_time__lt=end_time,
+                    end_time__gt=start_time
             ).exists():
                 messages.error(request, "Выбранный стол уже забронирован на указанное время!")
                 return redirect("calendarapp:calendar")
@@ -239,32 +250,34 @@ class CalendarViewNew(generic.View):
         return render(request, self.template_name, {"form": form})
 
 
-# def get_available_tables(self, request):
-#     """AJAX-запрос для получения свободных столов"""
-#     start_time_str = request.GET.get("start_time")
-#     end_time_str = request.GET.get("end_time")
-#
-#     if not start_time_str or not end_time_str:
-#         return JsonResponse({"error": "Invalid date"}, status=400)
-#
-#     start_time = parse_datetime(start_time_str)
-#     end_time = parse_datetime(end_time_str)
-#
-#     if not start_time or not end_time:
-#         return JsonResponse({"error": "Invalid datetime format"}, status=400)
-#
-#     # Получаем список уже забронированных столов
-#     booked_tables = Event.objects.filter(
-#         start_time__lt=end_time,
-#         end_time__gt=start_time,
-#         table__isnull=False  # Убираем пустые столы
-#     ).values_list("table_id", flat=True)
-#
-#     # Фильтруем доступные столы
-#     available_tables = Tables.objects.exclude(id__in=booked_tables)
-#     tables_data = [{"id": table.id, "name": table.number} for table in available_tables]
-#
-#     return JsonResponse({"tables": tables_data})
+    def get_available_tables(self, request):
+        """AJAX-запрос для получения свободных столов"""
+        start_time_str = request.GET.get("start_time")
+        end_time_str = request.GET.get("end_time")
+
+        if not start_time_str or not end_time_str:
+            return JsonResponse({"error": "Invalid date"}, status=400)
+
+        try:
+            start_time = parse_datetime(start_time_str)
+            end_time = parse_datetime(end_time_str)
+        except (ValueError, TypeError):
+            return JsonResponse({"error": "Invalid datetime format"}, status=400)
+
+        # Получаем забронированные столы
+        booked_tables = Event.objects.filter(
+            start_time__lt=end_time,
+            end_time__gt=start_time
+        ).exclude(table=None).values_list("table_id", flat=True)
+
+        # Получаем доступные столы с ценами
+        available_tables = Tables.objects.exclude(id__in=booked_tables).values(
+            "id", "number", "price_per_hour", "price_per_half_hour", 'table_description'
+        )
+
+        return JsonResponse({
+            "tables": list(available_tables)
+        }, safe=False)
 
 
 def delete_event(request, event_id):
