@@ -52,19 +52,6 @@ class CompletedEventsListView(ListView):
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from calendarapp.models.event import Event, Tables
-
-
-
-
-from django.db.models import Sum
-from django.utils.timezone import now
-from decimal import Decimal
-
-from django.db.models import Sum, Count
-from django.utils.timezone import now
-from decimal import Decimal
-
-from django.shortcuts import render
 from django.db.models import Sum
 from django.utils.timezone import now
 from decimal import Decimal

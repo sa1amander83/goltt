@@ -1129,7 +1129,7 @@ A VERTICAL event
   }
 .fc .fc-timegrid-col.fc-day-today {
       background-color: rgb(255, 220, 40, 1);!important;
-      background-color: var(--fc-today-bg-color, rgb(255, 193, 7, 1));
+      background-color: var(--fc-today-bg-color, rgb(255, 193, 7)) !important;
     }
 .fc .fc-timegrid-col-frame {
     min-height: 100%; /* liquid-hack is below */
@@ -1500,9 +1500,9 @@ A VERTICAL event
 
 
 .fc .fc-daygrid-day.fc-day-today {
-      background-color: rgb(170, 149, 43) !important;
-      background-color: var(--fc-today-bg-color, rgb(78, 68, 8)) !important;
-    background-color: var(--fc-today-bg-color, rgb(78, 68, 8)) !important;
+      background-color: rgb(170, 149, 43) ;
+      background-color: var(--fc-today-bg-color, rgb(198, 181, 70));
+    background-color: var(--fc-today-bg-color, rgb(184, 165, 60)) ;
 
     }
 
