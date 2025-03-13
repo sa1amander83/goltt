@@ -1499,10 +1499,13 @@ A VERTICAL event
 
 
 
-.fc .fc-daygrid-day.fc-day-today {
-      background-color: rgb(170, 149, 43) ;
-      background-color: var(--fc-today-bg-color, rgb(198, 181, 70));
-    background-color: var(--fc-today-bg-color, rgb(184, 165, 60)) ;
+/*.fc .fc-daygrid-day.fc-day-today {*/
+/*      background-color: rgb(170, 149, 43) ;*/
+/*      background-color: var(--fc-today-bg-color, rgb(198, 181, 70));*/
+/*    background-color: var(--fc-today-bg-color, rgb(184, 165, 60)) ;*/
 
-    }
+/*    }*/
 
+#calendar .fc-agendaWeek-view .fc-today,  #calendar .fc-agendaDay-view .fc-today {
+  background: red !important;
+}

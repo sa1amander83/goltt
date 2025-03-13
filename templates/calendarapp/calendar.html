@@ -236,11 +236,11 @@
                 navLinks: true,
                 selectable: true,
                 selectMirror: true,
-                  dayRender: function(info) {
+                dayRender: function (info) {
                     if (info.date.toDateString() === new Date().toDateString()) {
-                      info.el.classList.add('fc-today');
+                        info.el.classList.add('fc-today');
                     }
-                  },
+                },
                 // Event selection logic
                 select: function (arg) {
                     const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
@@ -254,6 +254,19 @@
                     calculateTimeAndCost();
 
                     calendar.unselect();
+                },
+
+
+                eventContent: function (arg) {
+                    return {
+                        html: `
+                <div>
+                    <b>${arg.timeText}</b>
+                    <i>${arg.event.title} №${arg.event.extendedProps.table_number}</i>
+                                     
+                </div>
+            `
+                    };
                 },
                 // Event click logic
                 eventClick: function (info) {
@@ -280,10 +293,13 @@
                         detailModal.hide();
                         openEditModal(event);
                     };
-                },
+                }
+                ,
                 editable: true,
-                dayMaxEvents: true,
-                events: {{ events|safe }},
+                dayMaxEvents:
+                    true,
+                events:
+                    {{ events|safe }},
             });
 
             calendar.setOption('locale', 'ru');
@@ -302,7 +318,8 @@
                 if (eventModal) {
                     eventModal.hide();
                 }
-            }); document.getElementById('modalDetailClose').addEventListener('click', () => {
+            });
+            document.getElementById('modalDetailClose').addEventListener('click', () => {
                 const detailModal = bootstrap.Modal.getInstance(document.getElementById('detailModal'));
                 if (detailModal) {
                     detailModal.hide();
@@ -343,6 +360,7 @@
                         success: function (response) {
                             alert(response.message);
                             calendar.refetchEvents(); // Refresh events after adding to next week
+                            window.location.reload();
                         },
                         error: function (xhr, status, error) {
                             alert('Ошибка!');
@@ -364,6 +382,7 @@
                         success: function (response) {
                             alert(response.message);
                             calendar.refetchEvents(); // Refresh events after adding to next day
+                            window.location.reload();
                         },
                         error: function (xhr, status, error) {
                             alert('Ошибка!');
@@ -373,82 +392,85 @@
             });
 
             // Change event button click handler
-            document.getElementById('change-event').addEventListener('click', function () {
-                const eventId = this.getAttribute('data-event-id-change');
-                if (!eventId) {
-                    console.error('Event ID is missing!');
-                    return;
-                }
+            function openEditModal(event) {
+    const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
+    
+    // Заполнение формы данными события
+    document.getElementById('id_title').value = event.title;
+    document.getElementById('id_description').value = event.extendedProps.description;
+    document.getElementById('id_table').value = event.extendedProps.table_number;
+    document.getElementById('id_start_time').value = formatDateForDjango(event.start);
+    document.getElementById('id_end_time').value = formatDateForDjango(event.end);
 
-                // Fetch event data for editing
-                $.ajax({
-                    url: `/change_event/${eventId}/`,
-                    type: 'GET',
-                    success: function (response) {
-                        console.log("Полученные данные:", response);
+    // Установка времени в flatpickr
+    startTimePicker.setDate(event.start, true);
+    endTimePicker.setDate(event.end, true);
 
-                        // Populate form fields with event data
-                        document.getElementById('id_title').value = response.title;
-                        document.getElementById('id_description').value = response.description;
-                        document.getElementById('id_table').value = response.table_id;
-                        document.getElementById('total-cost-display').innerText = response.total_cost.toString();
-                        document.getElementById('total-time-display').innerText = response.total_time.toString();
+    // Пересчет времени и стоимости
+    calculateTimeAndCost();
 
-                        const startDate = new Date(response.start_time);
-                        const endDate = new Date(response.end_time);
+    // Показ модального окна
+    eventModal.show();
 
-                        if (!isNaN(startDate.getTime())) {
-                            startTimePicker.setDate(startDate, true);
-                        } else {
-                            console.error("Некорректная дата начала:", response.start_time);
-                        }
+    // Обработчик отправки формы
+    document.querySelector('#eventModal form').onsubmit = function (e) {
+        e.preventDefault();
 
-                        if (!isNaN(endDate.getTime())) {
-                            endTimePicker.setDate(endDate, true);
-                        } else {
-                            console.error("Некорректная дата окончания:", response.end_time);
-                        }
+        const formData = new FormData(this);
+        const eventId = event.id;
 
-                        // Recalculate time and cost
-                        calculateTimeAndCost();
+        $.ajax({
+            url: `/change_event/${eventId}/`,
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken') // Добавление CSRF-токена
+            },
+            success: function (response) {
+                alert(response.message);
+                eventModal.hide();
+                calendar.refetchEvents(); // Обновление событий после изменения
+            },
+            error: function (xhr) {
+                alert('Ошибка при сохранении изменений!');
+                console.error(xhr.responseText);
+            }
+        });
+    };
+}
 
-                        // Open the event modal for editing
-                        const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
-                        eventModal.show();
+document.getElementById('change-event').onclick = function () {
+    const eventId = this.getAttribute('data-event-id-change');
+    if (!eventId) {
+        console.error('Event ID is missing!');
+        return;
+    }
 
-                        // Form submit handler
-                        document.querySelector('#eventModal form').onsubmit = function (e) {
-                            e.preventDefault();
+    // Получение данных события для редактирования
+    $.ajax({
+        url: `/change_event/${eventId}/`,
+        type: 'GET',
+        success: function (response) {
+            console.log("Полученные данные:", response);
 
-                            const formData = new FormData(this);
-                           
-                            $.ajax({
-                                url: `/change_event/${eventId}/`,
-                                type: 'GET',
-                                data: formData,
-                                processData: false,
-                                contentType: false,
-                                headers: {
-                                    'X-CSRFToken': getCookie('csrftoken') // Add CSRF-token
-                                },
-                                success: function (response) {
-                                    alert(response.message);
-                                    eventModal.hide();
-                                    calendar.refetchEvents(); // Refresh events after update
-                                },
-                                error: function (xhr) {
-                                    alert('Ошибка при сохранении изменений!');
-                                    console.error(xhr.responseText);
-                                }
-                            });
-                        };
-                    },
-                    error: function (xhr) {
-                        alert('Ошибка при получении данных события!');
-                        console.error(xhr.responseText);
-                    }
-                });
+            // Открытие модального окна для редактирования
+            openEditModal({
+                id: eventId,
+                title: response.title,
+                description: response.description,
+                table_number: response.table_id,
+                start: new Date(response.start_time),
+                end: new Date(response.end_time)
             });
+        },
+        error: function (xhr) {
+            alert('Ошибка при получении данных события!');
+            console.error(xhr.responseText);
+        }
+    });
+};
 
             // Helper function to get CSRF-token
             function getCookie(name) {
@@ -461,7 +483,8 @@
                 }
                 return null;
             }
-         });
+        })
+        ;
 
         // Flatpickr settings
         const startTimePicker = flatpickr("#id_start_time", {

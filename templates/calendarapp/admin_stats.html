@@ -1,18 +1,3 @@
-{% extends 'base/base.html' %}
-{% load static %}
-
-{% block title %}События{% endblock title %}
-{% block extracss %}
-    <link href="https://cdn.jsdelivr.net/npm/flowbite@3.1.2/dist/flowbite.min.css" rel="stylesheet"/>
-{% endblock extracss %}
-
-{% block breadcrumb %}
-    <ul class="app-breadcrumb breadcrumb">
-        <li class="breadcrumb-item"><i class="fa fa-home fa-lg"></i></li>
-        <li class="breadcrumb-item"><a>Отчет по столам</a></li>
-    </ul>
-{% endblock breadcrumb %}
-
 {% block content %}
     <div class="table-links mb-4">
         <ul class="nav nav-pills">
@@ -21,7 +6,8 @@
             </li>
             {% for table in table_stats %}
                 <li class="nav-item">
-                    <a class="nav-link" href="#" data-table-id="{{ table.table_number }}" onclick="loadTableStatistics({{ table.table_number }})">
+                    <a class="nav-link" href="#" data-table-id="{{ table.table_number }}"
+                       onclick="loadTableStatistics({{ table.table_number }})">
                         Стол {{ table.table_number }}
                     </a>
                 </li>
@@ -35,7 +21,7 @@
 
     <div class="calendar-container mb-4 w-25">
         <h3>Выберите дату:</h3>
-        <input type="date" id="statisticsDatePicker" class="form-control">
+        <input type="text" id="statisticsDatePicker" class="form-control" placeholder="Выберите дату">
     </div>
 
     <table id="table-table">
@@ -63,22 +49,30 @@
 
     <h2>Итого за сегодня: {{ total_daily_income }} ₽</h2>
     <h2>Итого за месяц: {{ total_monthly_income }} ₽</h2>
-
+    <h2>Доход за прошедший месяц: {{ total_past_month_income }} ₽</h2>
     <canvas id="bookingChart" width="400" height="200"></canvas>
 {% endblock content %}
 
 {% block extrascripts %}
     <script src="https://cdn.jsdelivr.net/npm/simple-datatables@9.0.3"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/ru.js"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const datePicker = document.getElementById('statisticsDatePicker');
-            if (datePicker) {
-                datePicker.value = new Date().toISOString().split('T')[0];
-                datePicker.addEventListener('change', () => loadTableStatistics());
-            }
+            // Инициализация Flatpickr
+            const datePicker = flatpickr("#statisticsDatePicker", {
+                dateFormat: "Y-m-d",
+                locale: "ru",
+                defaultDate: new Date().toISOString().split('T')[0], // Сегодняшняя дата по умолчанию
+                onChange: function (selectedDates, dateStr, instance) {
+                    // При изменении даты обновляем статистику
+                    loadTableStatistics();
+                }
+            });
 
+            // Инициализация таблицы
             if (document.getElementById("table-table") && typeof simpleDatatables !== 'undefined') {
                 new simpleDatatables.DataTable("#table-table", {
                     searchable: false,
@@ -86,6 +80,7 @@
                 });
             }
 
+            // Обработка кликов по вкладкам
             document.querySelectorAll('.nav-link').forEach(link => {
                 link.addEventListener('click', function (e) {
                     e.preventDefault();
@@ -96,9 +91,11 @@
                 });
             });
 
+            // Загрузка статистики при загрузке страницы
             loadTableStatistics();
         });
 
+        // Функция для загрузки статистики
         function loadTableStatistics(tableId = '') {
             const selectedDate = document.getElementById('statisticsDatePicker').value;
 
@@ -119,7 +116,6 @@
                                     <p><strong>Стол ${stat.table_number}</strong></p>
                                     <p>Количество бронирований: ${stat.total_events}</p>
                                     <p>Доход за день: ${stat.total_income} ₽</p>
-{#                                    <p>Среднее время бронирования: ${stat.average_booking_time} часов</p>#}
                                     <p>Общее время бронирования: ${stat.sum_time} часов</p>
                                     <hr>
                                 `;
@@ -129,8 +125,7 @@
                                 <h4>Статистика ${data.table_number}</h4>
                                 <p>Дата: ${selectedDate}</p>
                                 <p>Количество бронирований: ${data.total_events}</p>
-                                <p>доход за день: ${data.total_income} ₽</p>
-{#                                <p>Среднее время бронирования: ${data.average_booking_time} часов</p>#}
+                                <p>Доход за день: ${data.total_income} ₽</p>
                                 <p>Общее время бронирования: ${data.sum_time} часов</p>
                             `;
                         }
@@ -143,4 +138,4 @@
                 });
         }
     </script>
-{% endblock %}
+{% endblock extrascripts %}
