@@ -145,7 +145,7 @@ logger = logging.getLogger(__name__)
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 
-class CalendarViewNew(LoginRequiredMixin, generic.View):
+class CalendarViewNew(generic.View):
     # class CalendarViewNew(LoginRequiredMixin, generic.View):
     login_url = "accounts:signin"
     template_name = "calendarapp/calendar.html"
@@ -200,6 +200,10 @@ class CalendarViewNew(LoginRequiredMixin, generic.View):
 
     # @method_decorator(login_required, name='dispatch') # Раскомментируйте для требования авторизации
     def post(self, request, *args, **kwargs):
+
+        if not request.user.is_authenticated:
+            messages.error(request, "Для создания события необходимо войти в систему.")
+            return redirect("accounts:signin")
         form = self.form_class(request.POST)
         if form.is_valid():
             event = form.save(commit=False)

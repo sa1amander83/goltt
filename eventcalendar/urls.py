@@ -21,10 +21,11 @@ from .views import DashboardView
 
 
 urlpatterns = [
+path("", include("calendarapp.urls")),
     path("", DashboardView.as_view(), name="dashboard"),
     path("admin/", admin.site.urls),
 
     path("accounts/", include("accounts.urls")),
-    path("", include("calendarapp.urls")),
+
 
 ]

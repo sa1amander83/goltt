@@ -105,10 +105,15 @@
 
                                     </div>
                                 </div>
+                             {% if request.user.is_authenticated %}
                                 <div class="modal-footer">
                                     <button id="modalClose2" type="button" class="btn btn-danger">Закрыть</button>
                                     <button type="submit" class="btn btn-primary">Сохранить</button>
                                 </div>
+                            {% else %}
+                                 <div class="modal-footer"> Вы не зарегистрированы!
+                            <a href="{% url 'accounts:signup' %}" class="btn btn-primary">Зарегистрироваться</a></div>
+                            {% endif %}
                             </form>
                         </div>
                     </div>
@@ -150,6 +155,8 @@
 
 
                                 </div>
+
+                                {% if request.user.is_authenticated and request.user.is_superuser%}
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-primary" id="change-event"
                                             data-event-id-change="">Изменить
@@ -167,6 +174,7 @@
                                     </button>
 
                                 </div>
+                                {% endif %}
                             </form>
                         </div>
                     </div>
@@ -236,7 +244,7 @@
                 navLinks: true,
                 selectable: true,
                 selectMirror: true,
-                dayRender: function (info) {
+                dayCellDidMount: function (info) {
                     if (info.date.toDateString() === new Date().toDateString()) {
                         info.el.classList.add('fc-today');
                     }
@@ -263,7 +271,7 @@
                 <div>
                     <b>${arg.timeText}</b>
                     <i>${arg.event.title} №${arg.event.extendedProps.table_number}</i>
-                                     
+
                 </div>
             `
                     };
@@ -394,7 +402,7 @@
             // Change event button click handler
             function openEditModal(event) {
     const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
-    
+
     // Заполнение формы данными события
     document.getElementById('id_title').value = event.title;
     document.getElementById('id_description').value = event.extendedProps.description;
