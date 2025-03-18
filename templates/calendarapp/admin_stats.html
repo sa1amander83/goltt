@@ -1,13 +1,22 @@
+{% load static %}
+{% block title %}Статистика{% endblock title %}
+
+{% block extracss %}
+    <link href="https://cdn.jsdelivr.net/npm/flowbite@3.1.2/dist/flowbite.min.css" rel="stylesheet"/>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
+{% endblock extracss %}
+
 {% block content %}
-    <div class="table-links mb-4">
-        <ul class="nav nav-pills">
-            <li class="nav-item">
-                <a class="nav-link active" href="#" data-table-id="" onclick="loadTableStatistics()">Все</a>
+<div class="container mx-auto p-6">
+    <div class="mb-6">
+        <ul class="flex space-x-4 border-b pb-2">
+            <li>
+                <a class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition" href="#" data-table-id="" onclick="loadTableStatistics()">Все</a>
             </li>
             {% for table in table_stats %}
-                <li class="nav-item">
-                    <a class="nav-link" href="#" data-table-id="{{ table.table_number }}"
-                       onclick="loadTableStatistics({{ table.table_number }})">
+                <li>
+                    <a class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition" href="#" data-table-id="{{ table.table_number }}" onclick="loadTableStatistics({{ table.table_number }})">
                         Стол {{ table.table_number }}
                     </a>
                 </li>
@@ -15,42 +24,50 @@
         </ul>
     </div>
 
-    <div id="tableStatisticsContainer">
-        <!-- Здесь будет отображаться статистика -->
+    <div id="tableStatisticsContainer" class="p-4 bg-white rounded shadow-md mb-6">
+        <!-- Статистика появится здесь -->
     </div>
 
-    <div class="calendar-container mb-4 w-25">
-        <h3>Выберите дату:</h3>
-        <input type="text" id="statisticsDatePicker" class="form-control" placeholder="Выберите дату">
+    <div class="mb-6">
+        <h3 class="text-lg font-semibold mb-2">Выберите дату:</h3>
+        <input type="text" id="statisticsDatePicker" class="p-2 border rounded w-full max-w-sm" placeholder="Выберите дату">
     </div>
 
-    <table id="table-table">
-        <thead>
-        <tr>
-            <th>Стол</th>
-            <th>Количество бронирований за день</th>
-            <th>Количество бронирований за месяц</th>
-            <th>Дневной доход</th>
-            <th>Месячный доход</th>
-        </tr>
-        </thead>
-        <tbody>
-        {% for stat in table_stats %}
-            <tr>
-                <td>{{ stat.table_number }}</td>
-                <td>{{ stat.total_bookings_today }}</td>
-                <td>{{ stat.total_bookings_month }}</td>
-                <td>{{ stat.daily_income }} ₽</td>
-                <td>{{ stat.monthly_income }} ₽</td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="px-4 py-2">Стол</th>
+                    <th class="px-4 py-2">Бронирования за день</th>
+                    <th class="px-4 py-2">Бронирования за месяц</th>
+                    <th class="px-4 py-2">Дневной доход</th>
+                    <th class="px-4 py-2">Месячный доход</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stat in table_stats %}
+                    <tr class="border-t">
+                        <td class="px-4 py-2">{{ stat.table_number }}</td>
+                        <td class="px-4 py-2">{{ stat.total_bookings_today }}</td>
+                        <td class="px-4 py-2">{{ stat.total_bookings_month }}</td>
+                        <td class="px-4 py-2">{{ stat.daily_income }} ₽</td>
+                        <td class="px-4 py-2">{{ stat.monthly_income }} ₽</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
-    <h2>Итого за сегодня: {{ total_daily_income }} ₽</h2>
-    <h2>Итого за месяц: {{ total_monthly_income }} ₽</h2>
-    <h2>Доход за прошедший месяц: {{ total_past_month_income }} ₽</h2>
-    <canvas id="bookingChart" width="400" height="200"></canvas>
+    <div class="mt-6 text-lg font-semibold">
+        <h2>Итого за сегодня: <span class="text-green-600">{{ total_daily_income }} ₽</span></h2>
+        <h2>Итого за месяц: <span class="text-green-600">{{ total_monthly_income }} ₽</span></h2>
+        <h2>Доход за прошедший месяц: <span class="text-green-600">{{ total_past_month_income }} ₽</span></h2>
+    </div>
+    
+    <div class="mt-6">
+        <canvas id="bookingChart" width="400" height="200"></canvas>
+    </div>
+</div>
 {% endblock content %}
 
 {% block extrascripts %}
@@ -61,80 +78,49 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // Инициализация Flatpickr
-            const datePicker = flatpickr("#statisticsDatePicker", {
+            flatpickr("#statisticsDatePicker", {
                 dateFormat: "Y-m-d",
                 locale: "ru",
-                defaultDate: new Date().toISOString().split('T')[0], // Сегодняшняя дата по умолчанию
-                onChange: function (selectedDates, dateStr, instance) {
-                    // При изменении даты обновляем статистику
+                defaultDate: new Date().toISOString().split('T')[0],
+                onChange: function () {
                     loadTableStatistics();
                 }
             });
-
-            // Инициализация таблицы
-            if (document.getElementById("table-table") && typeof simpleDatatables !== 'undefined') {
-                new simpleDatatables.DataTable("#table-table", {
-                    searchable: false,
-                    perPageSelect: false
-                });
-            }
-
-            // Обработка кликов по вкладкам
-            document.querySelectorAll('.nav-link').forEach(link => {
-                link.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
-                    this.classList.add('active');
-                    const tableId = this.getAttribute('data-table-id');
-                    loadTableStatistics(tableId);
-                });
-            });
-
-            // Загрузка статистики при загрузке страницы
-            loadTableStatistics();
         });
 
-        // Функция для загрузки статистики
         function loadTableStatistics(tableId = '') {
             const selectedDate = document.getElementById('statisticsDatePicker').value;
-
             fetch(`/get_table_statistics/?table_id=${tableId}&date=${selectedDate}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Ошибка сети или сервера');
-                    }
-                    return response.json();
-                })
+                .then(response => response.json())
                 .then(data => {
                     const container = document.getElementById('tableStatisticsContainer');
-                    if (container) {
-                        if (Array.isArray(data)) {
-                            container.innerHTML = '<h4>Общая статистика</h4>';
-                            data.forEach(stat => {
-                                container.innerHTML += `
+                    container.innerHTML = '';
+                    if (Array.isArray(data)) {
+                        data.forEach(stat => {
+                            container.innerHTML += `
+                                <div class="p-4 border-b">
                                     <p><strong>Стол ${stat.table_number}</strong></p>
                                     <p>Количество бронирований: ${stat.total_events}</p>
                                     <p>Доход за день: ${stat.total_income} ₽</p>
                                     <p>Общее время бронирования: ${stat.sum_time} часов</p>
-                                    <hr>
-                                `;
-                            });
-                        } else {
-                            container.innerHTML = `
-                                <h4>Статистика ${data.table_number}</h4>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        container.innerHTML = `
+                            <div class="p-4">
+                                <h4 class="text-lg font-semibold">Статистика ${data.table_number}</h4>
                                 <p>Дата: ${selectedDate}</p>
                                 <p>Количество бронирований: ${data.total_events}</p>
                                 <p>Доход за день: ${data.total_income} ₽</p>
                                 <p>Общее время бронирования: ${data.sum_time} часов</p>
-                            `;
-                        }
+                            </div>
+                        `;
                     }
                 })
                 .catch(error => {
-                    console.error('Ошибка при загрузке статистики:', error);
-                    document.getElementById('tableStatisticsContainer').innerHTML =
-                        `<p class="text-danger">Ошибка: ${error.message}</p>`;
+                    console.error('Ошибка:', error);
+                    document.getElementById('tableStatisticsContainer').innerHTML = `<p class="text-red-600">Ошибка загрузки данных.</p>`;
                 });
         }
     </script>

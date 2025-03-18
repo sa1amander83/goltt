@@ -2,6 +2,7 @@ from datetime import datetime
 
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
+from django.template.defaultfilters import title
 from django.urls import reverse
 
 from calendarapp.models import EventAbstract
@@ -52,9 +53,9 @@ class Tables(models.Model):
         (3, 'Стол 3'),
         (4, 'Стол 4'),
     ])
-    price_per_hour = models.DecimalField(max_digits=6, decimal_places=2, default=300)
-    price_per_half_hour = models.DecimalField(max_digits=6, decimal_places=2, default=200)
-    table_description = models.CharField(blank=True, null=True, max_length=12)
+    price_per_hour = models.DecimalField(max_digits=6, decimal_places=2, default=300, verbose_name='Цена за час')
+    price_per_half_hour = models.DecimalField(max_digits=6, decimal_places=2, default=200, verbose_name='Цена за пол часа')
+    table_description = models.CharField(blank=True, null=True, max_length=12, verbose_name='Описание стола')
 
     def __str__(self):
         return f"Стол {self.number}"
@@ -65,14 +66,14 @@ class Tables(models.Model):
 class Event(EventAbstract):
     """ Event model """
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="events")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="events",verbose_name='гость')
     title = models.CharField(max_length=200)
     description = models.TextField()
-    start_time = models.DateTimeField()
-    end_time = models.DateTimeField()
+    start_time = models.DateTimeField(verbose_name='Время начала брони')
+    end_time = models.DateTimeField(verbose_name='Время окончания брони')
     total_cost=models.FloatField(default=300)
     objects = EventManager()
-    table = models.ForeignKey(Tables, on_delete=models.CASCADE, related_name="events", null=True, default=1)
+    table = models.ForeignKey(Tables, on_delete=models.CASCADE, related_name="events", null=True, default=1, verbose_name='Стол')
     total_time=models.FloatField(default=0)
 
     def __str__(self):
