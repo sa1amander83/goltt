@@ -43,142 +43,148 @@
                 <div class="col-md-9">
                     <div id="calendar"></div>
                 </div>
-
-                <div class="modal fade show" id="eventModal" tabindex="-1" role="dialog"
-                     aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered" role="document">
-                        <div class="modal-content">
-                            <div class="modal-header bg-primary">
-                                <h5 class="modal-title text-white" id="exampleModalLongTitle">Забронировать стол</h5>
-                                <button id="modalClose1" type="button" class="close" data-dismiss="modal"
-                                        aria-label="Close">
-                                    <span aria-hidden="true">&times;</span>
-                                </button>
-                            </div>
-                            <form method="post">
-                                {% csrf_token %}
-                                <div class="modal-body">
-
-
-                                    <div class="form-group">
-                                        <label for="recipient-name" class="col-form-label"></label>
-                                        {{ form.title }}
-                                    </div>
-                                    <div class="form-group">
-                                        {#                                    <label for="message-text" class="col-form-label">Описание:</label>#}
-                                        {{ form.description }}
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="message-text" class="col-form-label">Начало брони:</label>
-                                        {{ form.start_time }}
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="message-text" class="col-form-label">Конец брони:</label>
-                                        {{ form.end_time }}
-                                    </div>
-
-                                    <label for="id_table">Выберите стол:</label>
-                                    <select name="table" id="id_table" class="form-control">
-                                        {% for table in tables %}
-                                            <option value="{{ table.id }}"
-                                                    data-price-hour="{{ table.price_per_hour }}"
-                                                    data-price-half-hour="{{ table.price_per_half_hour }}">
-                                                Стол {{ table.number }} ({{ table.table_description }})
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                    <div class="d-flex justify-content-between important">
-                                        <div class="form-group">
-                                            <label for="total-cost-display" class="col-form-label">Итоговая сумма:&nbsp;
-                                                <span id="total-cost-display">0</span></label>
-
-                                        </div>
-                                        <input type="hidden" name="total_cost" value="{{ total_cost }}" id="total-cost">
+                {% if is_admin %}
+                    <div class="modal fade show" id="eventModal" tabindex="-1" role="dialog"
+                         aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header bg-primary">
+                                    <h5 class="modal-title text-white" id="exampleModalLongTitle">Забронировать
+                                        стол</h5>
+                                    <button id="modalClose1" type="button" class="close" data-dismiss="modal"
+                                            aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <form method="post">
+                                    {% csrf_token %}
+                                    <div class="modal-body">
 
 
                                         <div class="form-group">
-                                            <label for="total-time-display" class="col-form-label">Всего часов:&nbsp;
-                                                <span id="total-time-display">0</span></label>
+                                            <label for="recipient-name" class="col-form-label"></label>
+                                            {{ form.title }}
+                                        </div>
+                                        <div class="form-group">
+                                            {#                                    <label for="message-text" class="col-form-label">Описание:</label>#}
+                                            {{ form.description }}
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="message-text" class="col-form-label">Начало брони:</label>
+                                            {{ form.start_time }}
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="message-text" class="col-form-label">Конец брони:</label>
+                                            {{ form.end_time }}
+                                        </div>
+
+                                        <label for="id_table">Выберите стол:</label>
+                                        <select name="table" id="id_table" class="form-control">
+                                            {% for table in tables %}
+                                                <option value="{{ table.id }}"
+                                                        data-price-hour="{{ table.price_per_hour }}"
+                                                        data-price-half-hour="{{ table.price_per_half_hour }}">
+                                                    Стол {{ table.number }} ({{ table.table_description }})
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="d-flex justify-content-between important">
+                                            <div class="form-group">
+                                                <label for="total-cost-display" class="col-form-label">Итоговая сумма:&nbsp;
+                                                    <span id="total-cost-display">0</span></label>
+
+                                            </div>
+                                            <input type="hidden" name="total_cost" value="{{ total_cost }}"
+                                                   id="total-cost">
+
+
+                                            <div class="form-group">
+                                                <label for="total-time-display" class="col-form-label">Всего часов:&nbsp;
+                                                    <span id="total-time-display">0</span></label>
+
+                                            </div>
+                                            <input type="hidden" name="total_time" value="{{ total_time }}"
+                                                   id="total-time">
 
                                         </div>
-                                        <input type="hidden" name="total_time" value="{{ total_time }}" id="total-time">
-
                                     </div>
-                                </div>
-                             {% if request.user.is_authenticated %}
-                                <div class="modal-footer">
-                                    <button id="modalClose2" type="button" class="btn btn-danger">Закрыть</button>
-                                    <button type="submit" class="btn btn-primary">Сохранить</button>
-                                </div>
-                            {% else %}
-                                 <div class="modal-footer"> Вы не зарегистрированы!
-                            <a href="{% url 'accounts:signup' %}" class="btn btn-primary">Зарегистрироваться</a></div>
-                            {% endif %}
-                            </form>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal fade show" id="detailModal" tabindex="-1" role="dialog"
-                     aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered" role="document">
-                        <div class="modal-content">
-                            <div class="modal-header bg-primary">
-                                <h5 class="modal-title text-white" id="title_event_detail"></h5>
-                                <button id="modalDetailClose" type="button" class="close" data-dismiss="modal"
-                                        aria-label="Close">
-                                    <span aria-hidden="true">&times;</span>
-                                </button>
+                                    {% if request.user.is_authenticated %}
+                                        <div class="modal-footer">
+                                            <button id="modalClose2" type="button" class="btn btn-danger">Закрыть
+                                            </button>
+                                            <button type="submit" class="btn btn-primary">Сохранить</button>
+                                        </div>
+                                    {% else %}
+                                        <div class="modal-footer"> Вы не зарегистрированы!
+                                            <a href="{% url 'accounts:signup' %}"
+                                               class="btn btn-primary">Зарегистрироваться</a></div>
+                                    {% endif %}
+                                </form>
                             </div>
-                            <form method="">
-                                {% csrf_token %}
-                                <div class="modal-body">
-
-                                    <div class="form-group">
-                                        {#                                  <label for="message-text" class="col-form-label">Описание:</label>#}
-                                        <p id="description_event_detail">
-
-                                        </p>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="message-text" class="col-form-label">Начало брони:</label>
-                                        <p id="start_event_detail">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="message-text" class="col-form-label">Конец брони:</label>
-                                        <p id="end_event_detail">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="message-text" class="col-form-label">Забронирован стол:
-                                            № </label>
-                                        <span id="table_detail"></span>
-                                    </div>
-
-
-                                </div>
-
-                                {% if request.user.is_authenticated and request.user.is_superuser%}
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-primary" id="change-event"
-                                            data-event-id-change="">Изменить
-                                    </button>
-
-
-                                    <button id="delete-event-button" data-event-id="" type="button"
-                                            class="btn btn-danger">Удалить
-                                    </button>
-                                    <button id="add-to-next-week" data-event-id-week="" type="button"
-                                            class="btn btn-success">Следующая неделя
-                                    </button>
-                                    <button id="add-to-next-day" data-event-id-day="" type="button"
-                                            class="btn btn-primary">Завтра
-                                    </button>
-
-                                </div>
-                                {% endif %}
-                            </form>
                         </div>
                     </div>
-                </div>
+                    <div class="modal fade show" id="detailModal" tabindex="-1" role="dialog"
+                         aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header bg-primary">
+                                    <h5 class="modal-title text-white" id="title_event_detail"></h5>
+                                    <button id="modalDetailClose" type="button" class="close" data-dismiss="modal"
+                                            aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <form method="">
+                                    {% csrf_token %}
+                                    <div class="modal-body">
+
+                                        <div class="form-group">
+                                            {#                                  <label for="message-text" class="col-form-label">Описание:</label>#}
+                                            <p id="description_event_detail">
+
+                                            </p>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="message-text" class="col-form-label">Начало брони:</label>
+                                            <p id="start_event_detail">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="message-text" class="col-form-label">Конец брони:</label>
+                                            <p id="end_event_detail">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="message-text" class="col-form-label">Забронирован стол:
+                                                № </label>
+                                            <span id="table_detail"></span>
+                                        </div>
+
+
+                                    </div>
+
+                                    {% if request.user.is_authenticated and request.user.is_superuser %}
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-primary" id="change-event"
+                                                    data-event-id-change="">Изменить
+                                            </button>
+
+
+                                            <button id="delete-event-button" data-event-id="" type="button"
+                                                    class="btn btn-danger">Удалить
+                                            </button>
+                                            <button id="add-to-next-week" data-event-id-week="" type="button"
+                                                    class="btn btn-success">Следующая неделя
+                                            </button>
+                                            <button id="add-to-next-day" data-event-id-day="" type="button"
+                                                    class="btn btn-primary">Завтра
+                                            </button>
+
+                                        </div>
+                                    {% endif %}
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -219,6 +225,7 @@
 
         document.addEventListener('DOMContentLoaded', function () {
             // Calendar initialization
+            const isAdmin = {{ is_admin|yesno:"true,false" }};
             const calendarEl = document.getElementById('calendar');
             const today = new Date();
 
@@ -242,8 +249,8 @@
                 slotMaxTime: '23:00:00',
                 initialDate: today,
                 navLinks: true,
-                selectable: true,
-                selectMirror: true,
+                selectable: isAdmin,
+                selectMirror: isAdmin,
                 dayCellDidMount: function (info) {
                     if (info.date.toDateString() === new Date().toDateString()) {
                         info.el.classList.add('fc-today');
@@ -303,7 +310,10 @@
                     };
                 }
                 ,
-                editable: true,
+
+                editable: isAdmin,
+                eventResizable: isAdmin,
+                eventStartEditable: isAdmin,
                 dayMaxEvents:
                     true,
                 events:
@@ -401,84 +411,84 @@
 
             // Change event button click handler
             function openEditModal(event) {
-    const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
+                const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
 
-    // Заполнение формы данными события
-    document.getElementById('id_title').value = event.title;
-    document.getElementById('id_description').value = event.extendedProps.description;
-    document.getElementById('id_table').value = event.extendedProps.table_number;
-    document.getElementById('id_start_time').value = formatDateForDjango(event.start);
-    document.getElementById('id_end_time').value = formatDateForDjango(event.end);
+                // Заполнение формы данными события
+                document.getElementById('id_title').value = event.title;
+                document.getElementById('id_description').value = event.extendedProps.description;
+                document.getElementById('id_table').value = event.extendedProps.table_number;
+                document.getElementById('id_start_time').value = formatDateForDjango(event.start);
+                document.getElementById('id_end_time').value = formatDateForDjango(event.end);
 
-    // Установка времени в flatpickr
-    startTimePicker.setDate(event.start, true);
-    endTimePicker.setDate(event.end, true);
+                // Установка времени в flatpickr
+                startTimePicker.setDate(event.start, true);
+                endTimePicker.setDate(event.end, true);
 
-    // Пересчет времени и стоимости
-    calculateTimeAndCost();
+                // Пересчет времени и стоимости
+                calculateTimeAndCost();
 
-    // Показ модального окна
-    eventModal.show();
+                // Показ модального окна
+                eventModal.show();
 
-    // Обработчик отправки формы
-    document.querySelector('#eventModal form').onsubmit = function (e) {
-        e.preventDefault();
+                // Обработчик отправки формы
+                document.querySelector('#eventModal form').onsubmit = function (e) {
+                    e.preventDefault();
 
-        const formData = new FormData(this);
-        const eventId = event.id;
+                    const formData = new FormData(this);
+                    const eventId = event.id;
 
-        $.ajax({
-            url: `/change_event/${eventId}/`,
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken') // Добавление CSRF-токена
-            },
-            success: function (response) {
-                alert(response.message);
-                eventModal.hide();
-                calendar.refetchEvents(); // Обновление событий после изменения
-            },
-            error: function (xhr) {
-                alert('Ошибка при сохранении изменений!');
-                console.error(xhr.responseText);
+                    $.ajax({
+                        url: `/change_event/${eventId}/`,
+                        type: 'POST',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken') // Добавление CSRF-токена
+                        },
+                        success: function (response) {
+                            alert(response.message);
+                            eventModal.hide();
+                            calendar.refetchEvents(); // Обновление событий после изменения
+                        },
+                        error: function (xhr) {
+                            alert('Ошибка при сохранении изменений!');
+                            console.error(xhr.responseText);
+                        }
+                    });
+                };
             }
-        });
-    };
-}
 
-document.getElementById('change-event').onclick = function () {
-    const eventId = this.getAttribute('data-event-id-change');
-    if (!eventId) {
-        console.error('Event ID is missing!');
-        return;
-    }
+            document.getElementById('change-event').onclick = function () {
+                const eventId = this.getAttribute('data-event-id-change');
+                if (!eventId) {
+                    console.error('Event ID is missing!');
+                    return;
+                }
 
-    // Получение данных события для редактирования
-    $.ajax({
-        url: `/change_event/${eventId}/`,
-        type: 'GET',
-        success: function (response) {
-            console.log("Полученные данные:", response);
+                // Получение данных события для редактирования
+                $.ajax({
+                    url: `/change_event/${eventId}/`,
+                    type: 'GET',
+                    success: function (response) {
+                        console.log("Полученные данные:", response);
 
-            // Открытие модального окна для редактирования
-            openEditModal({
-                id: eventId,
-                title: response.title,
-                description: response.description,
-                table_number: response.table_id,
-                start: new Date(response.start_time),
-                end: new Date(response.end_time)
-            });
-        },
-        error: function (xhr) {
-            alert('Ошибка при получении данных события!');
-            console.error(xhr.responseText);
-        }
-    });
-};
+                        // Открытие модального окна для редактирования
+                        openEditModal({
+                            id: eventId,
+                            title: response.title,
+                            description: response.description,
+                            table_number: response.table_id,
+                            start: new Date(response.start_time),
+                            end: new Date(response.end_time)
+                        });
+                    },
+                    error: function (xhr) {
+                        alert('Ошибка при получении данных события!');
+                        console.error(xhr.responseText);
+                    }
+                });
+            };
 
             // Helper function to get CSRF-token
             function getCookie(name) {

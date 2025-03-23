@@ -146,7 +146,6 @@ from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 
 class CalendarViewNew(generic.View):
-    # class CalendarViewNew(LoginRequiredMixin, generic.View):
     login_url = "accounts:signin"
     template_name = "calendarapp/calendar.html"
     form_class = EventForm
@@ -158,33 +157,42 @@ class CalendarViewNew(generic.View):
         today_end = today_start + timedelta(days=1)
         if request.GET.get('ajax') == 'get_available_tables':
             return self.get_available_tables(request)
-        # Загружаем события с учетом связей, чтобы избежать лишних запросов
-        # events_month = Event.objects.filter(
-        #     start_time__month=date.today().month,
-        #     start_time__year=date.today().year
-        # ).select_related("table")
+
         events_all = Event.objects.all().select_related("table")
-        # Текущие бронирования
         current_bookings = events_all.filter(start_time__lte=current_time, end_time__gte=current_time)
 
-        # Подготовка списка событий
         event_list = []
         for event in events_all:
             table_id = event.table.id if event.table else None
             color = TABLE_COLORS.get(table_id, "#3498db")
-            event_list.append({
-                "id": event.id,
-                "title": event.title,
-                "start": event.start_time.strftime("%Y-%m-%dT%H:%M:%S"),
-                "end": event.end_time.strftime("%Y-%m-%dT%H:%M:%S"),
-                "description": event.description,
-                "color": color,
-                "table_number": table_id,
-                "table_description": event.table.table_description,
-                "total_time": event.total_time
-            })
+            if request.user.is_staff:  # Проверка, является ли пользователь администратором
+                event_list.append({
+                    "id": event.id,
+                    "title": event.title,
+                    "start": event.start_time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "end": event.end_time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "description": event.description,
+                    "color": color,
+                    "table_number": table_id,
+                    "table_description": event.table.table_description,
+                    "total_time": event.total_time,
+                    "is_admin": request.user.is_staff
 
-        # Загружаем все столы с ценами
+                })
+            else:
+                event_list.append({
+                    "id": event.id,
+                    "title": "Стол",
+                    "start": event.start_time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "end": event.end_time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "description": "",
+                    "color": color,
+                    "table_number": table_id,
+                    "table_description": "",
+                    "total_time": event.total_time,
+                    "is_admin": request.user.is_staff
+                })
+
         tables_with_prices = list(Tables.objects.values(
             "id", "number", "table_description", "price_per_hour", "price_per_half_hour"
         ))
@@ -198,23 +206,17 @@ class CalendarViewNew(generic.View):
         }
         return render(request, self.template_name, context)
 
-    # @method_decorator(login_required, name='dispatch') # Раскомментируйте для требования авторизации
     def post(self, request, *args, **kwargs):
-
         if not request.user.is_authenticated:
             messages.error(request, "Для создания события необходимо войти в систему.")
             return redirect("accounts:signin")
         form = self.form_class(request.POST)
         if form.is_valid():
             event = form.save(commit=False)
-
-            # Проверка аутентификации пользователя
             if not request.user.is_authenticated:
                 messages.error(request, "Для создания события необходимо войти в систему.")
                 return redirect("calendarapp:calendar")
-
-            event.user = request.user  # Устанавливаем пользователя
-
+            event.user = request.user
             try:
                 table_id = request.POST.get("table")
                 table = get_object_or_404(Tables, id=int(table_id)) if table_id else Tables.objects.first()
@@ -232,7 +234,6 @@ class CalendarViewNew(generic.View):
                 messages.error(request, "Ошибка в данных о времени или стоимости")
                 return redirect("calendarapp:calendar")
 
-            # Проверка на пересечение бронирований
             if Event.objects.filter(
                     table=table,
                     start_time__lt=end_time,
@@ -241,7 +242,6 @@ class CalendarViewNew(generic.View):
                 messages.error(request, "Выбранный стол уже забронирован на указанное время!")
                 return redirect("calendarapp:calendar")
 
-            # Устанавливаем значения и сохраняем
             event.table = table
             event.total_time = total_time
             event.total_cost = total_cost
@@ -253,9 +253,7 @@ class CalendarViewNew(generic.View):
         messages.error(request, "Ошибка при заполнении формы")
         return render(request, self.template_name, {"form": form})
 
-
     def get_available_tables(self, request):
-        """AJAX-запрос для получения свободных столов"""
         start_time_str = request.GET.get("start_time")
         end_time_str = request.GET.get("end_time")
 
@@ -268,13 +266,11 @@ class CalendarViewNew(generic.View):
         except (ValueError, TypeError):
             return JsonResponse({"error": "Invalid datetime format"}, status=400)
 
-        # Получаем забронированные столы
         booked_tables = Event.objects.filter(
             start_time__lt=end_time,
             end_time__gt=start_time
         ).exclude(table=None).values_list("table_id", flat=True)
 
-        # Получаем доступные столы с ценами
         available_tables = Tables.objects.exclude(id__in=booked_tables).values(
             "id", "number", "price_per_hour", "price_per_half_hour", 'table_description'
         )
@@ -282,7 +278,6 @@ class CalendarViewNew(generic.View):
         return JsonResponse({
             "tables": list(available_tables)
         }, safe=False)
-
 
 def delete_event(request, event_id):
     event = get_object_or_404(Event, id=event_id)
