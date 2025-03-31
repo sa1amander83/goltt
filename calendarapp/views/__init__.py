@@ -11,8 +11,8 @@ from .other_views import (
     next_week,
     next_day, change_event,
     get_table_statistics,
+    UserEventsCountView
 )
-
 
 __all__ = [
     AllEventsListView,
@@ -32,5 +32,3 @@ __all__ = [
     change_event,
 
 ]
-
-

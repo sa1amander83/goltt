@@ -105,15 +105,16 @@
 
                                     </div>
                                 </div>
-                             {% if request.user.is_authenticated %}
-                                <div class="modal-footer">
-                                    <button id="modalClose2" type="button" class="btn btn-danger">Закрыть</button>
-                                    <button type="submit" class="btn btn-primary">Сохранить</button>
-                                </div>
-                            {% else %}
-                                 <div class="modal-footer"> Вы не зарегистрированы!
-                            <a href="{% url 'accounts:signup' %}" class="btn btn-primary">Зарегистрироваться</a></div>
-                            {% endif %}
+                                {% if request.user.is_authenticated %}
+                                    <div class="modal-footer">
+                                        <button id="modalClose2" type="button" class="btn btn-danger">Закрыть</button>
+                                        <button type="submit" class="btn btn-primary">Сохранить</button>
+                                    </div>
+                                {% else %}
+                                    <div class="modal-footer"> Вы не зарегистрированы!
+                                        <a href="{% url 'accounts:signup' %}"
+                                           class="btn btn-primary">Зарегистрироваться</a></div>
+                                {% endif %}
                             </form>
                         </div>
                     </div>
@@ -156,24 +157,24 @@
 
                                 </div>
 
-                                {% if request.user.is_authenticated and request.user.is_superuser%}
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-primary" id="change-event"
-                                            data-event-id-change="">Изменить
-                                    </button>
+                                {% if request.user.is_authenticated and request.user.is_superuser %}
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-primary" id="change-event"
+                                                data-event-id-change="">Изменить
+                                        </button>
 
 
-                                    <button id="delete-event-button" data-event-id="" type="button"
-                                            class="btn btn-danger">Удалить
-                                    </button>
-                                    <button id="add-to-next-week" data-event-id-week="" type="button"
-                                            class="btn btn-success">Следующая неделя
-                                    </button>
-                                    <button id="add-to-next-day" data-event-id-day="" type="button"
-                                            class="btn btn-primary">Завтра
-                                    </button>
+                                        <button id="delete-event-button" data-event-id="" type="button"
+                                                class="btn btn-danger">Удалить
+                                        </button>
+                                        <button id="add-to-next-week" data-event-id-week="" type="button"
+                                                class="btn btn-success">Следующая неделя
+                                        </button>
+                                        <button id="add-to-next-day" data-event-id-day="" type="button"
+                                                class="btn btn-primary">Завтра
+                                        </button>
 
-                                </div>
+                                    </div>
                                 {% endif %}
                             </form>
                         </div>
@@ -195,7 +196,7 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="{% static 'calender/main.js' %}"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://npmcdn.com/flatpickr/dist/l10n/ru.js"></script>
+    <script src="{% static 'js/ru.js' %}"></script>
     <script>
         // Helper functions for formatting dates
         function formatDateTime(dateTime) {
@@ -221,6 +222,8 @@
             // Calendar initialization
             const calendarEl = document.getElementById('calendar');
             const today = new Date();
+            const isAdmin = {{ is_admin|yesno:"true,false" }};
+            const userId = {{ user_id|default:"null" }};
 
             const calendar = new FullCalendar.Calendar(calendarEl, {
                 headerToolbar: {
@@ -242,7 +245,10 @@
                 slotMaxTime: '23:00:00',
                 initialDate: today,
                 navLinks: true,
-                selectable: true,
+                {#selectable: true,#}
+                selectable: userId !== null,
+                editable: isAdmin,
+                {#selectable: isAdmin,#}
                 selectMirror: true,
                 dayCellDidMount: function (info) {
                     if (info.date.toDateString() === new Date().toDateString()) {
@@ -251,7 +257,19 @@
                 },
                 // Event selection logic
                 select: function (arg) {
+
+                    if (userId === null) {
+                        alert('Для создания бронирования необходимо войти в систему');
+                        return;
+                    }
                     const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
+                    if (userId === null) {
+                        alert('Для создания бронирования необходимо войти в систему');
+                        this.hide();
+                        return;
+                    }
+
+
                     eventModal.show();
 
                     document.getElementById('id_start_time').value = formatDateForDjango(arg.start);
@@ -259,6 +277,7 @@
 
                     startTimePicker.setDate(arg.start, true);
                     endTimePicker.setDate(arg.end, true);
+
                     calculateTimeAndCost();
 
                     calendar.unselect();
@@ -266,14 +285,18 @@
 
 
                 eventContent: function (arg) {
+                    let title = arg.event.title;
+                    if (!isAdmin && arg.event.extendedProps.user_id !== userId) {
+                        title = "Стол";
+                    }
+
                     return {
                         html: `
-                <div>
-                    <b>${arg.timeText}</b>
-                    <i>${arg.event.title} №${arg.event.extendedProps.table_number}</i>
-
-                </div>
-            `
+                    <div>
+                        <b>${arg.timeText}</b>
+                        <i>${title} №${arg.event.extendedProps.table_number}</i>
+                    </div>
+                `
                     };
                 },
                 // Event click logic
@@ -303,7 +326,7 @@
                     };
                 }
                 ,
-                editable: true,
+                {#editable: true,#}
                 dayMaxEvents:
                     true,
                 events:
@@ -401,84 +424,84 @@
 
             // Change event button click handler
             function openEditModal(event) {
-    const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
+                const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
 
-    // Заполнение формы данными события
-    document.getElementById('id_title').value = event.title;
-    document.getElementById('id_description').value = event.extendedProps.description;
-    document.getElementById('id_table').value = event.extendedProps.table_number;
-    document.getElementById('id_start_time').value = formatDateForDjango(event.start);
-    document.getElementById('id_end_time').value = formatDateForDjango(event.end);
+                // Заполнение формы данными события
+                document.getElementById('id_title').value = event.title;
+                document.getElementById('id_description').value = event.extendedProps.description;
+                document.getElementById('id_table').value = event.extendedProps.table_number;
+                document.getElementById('id_start_time').value = formatDateForDjango(event.start);
+                document.getElementById('id_end_time').value = formatDateForDjango(event.end);
 
-    // Установка времени в flatpickr
-    startTimePicker.setDate(event.start, true);
-    endTimePicker.setDate(event.end, true);
+                // Установка времени в flatpickr
+                startTimePicker.setDate(event.start, true);
+                endTimePicker.setDate(event.end, true);
 
-    // Пересчет времени и стоимости
-    calculateTimeAndCost();
+                // Пересчет времени и стоимости
+                calculateTimeAndCost();
 
-    // Показ модального окна
-    eventModal.show();
+                // Показ модального окна
+                eventModal.show();
 
-    // Обработчик отправки формы
-    document.querySelector('#eventModal form').onsubmit = function (e) {
-        e.preventDefault();
+                // Обработчик отправки формы
+                document.querySelector('#eventModal form').onsubmit = function (e) {
+                    e.preventDefault();
 
-        const formData = new FormData(this);
-        const eventId = event.id;
+                    const formData = new FormData(this);
+                    const eventId = event.id;
 
-        $.ajax({
-            url: `/change_event/${eventId}/`,
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken') // Добавление CSRF-токена
-            },
-            success: function (response) {
-                alert(response.message);
-                eventModal.hide();
-                calendar.refetchEvents(); // Обновление событий после изменения
-            },
-            error: function (xhr) {
-                alert('Ошибка при сохранении изменений!');
-                console.error(xhr.responseText);
+                    $.ajax({
+                        url: `/change_event/${eventId}/`,
+                        type: 'POST',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken') // Добавление CSRF-токена
+                        },
+                        success: function (response) {
+                            alert(response.message);
+                            eventModal.hide();
+                            calendar.refetchEvents(); // Обновление событий после изменения
+                        },
+                        error: function (xhr) {
+                            alert('Ошибка при сохранении изменений!');
+                            console.error(xhr.responseText);
+                        }
+                    });
+                };
             }
-        });
-    };
-}
 
-document.getElementById('change-event').onclick = function () {
-    const eventId = this.getAttribute('data-event-id-change');
-    if (!eventId) {
-        console.error('Event ID is missing!');
-        return;
-    }
+            document.getElementById('change-event').onclick = function () {
+                const eventId = this.getAttribute('data-event-id-change');
+                if (!eventId) {
+                    console.error('Event ID is missing!');
+                    return;
+                }
 
-    // Получение данных события для редактирования
-    $.ajax({
-        url: `/change_event/${eventId}/`,
-        type: 'GET',
-        success: function (response) {
-            console.log("Полученные данные:", response);
+                // Получение данных события для редактирования
+                $.ajax({
+                    url: `/change_event/${eventId}/`,
+                    type: 'GET',
+                    success: function (response) {
+                        console.log("Полученные данные:", response);
 
-            // Открытие модального окна для редактирования
-            openEditModal({
-                id: eventId,
-                title: response.title,
-                description: response.description,
-                table_number: response.table_id,
-                start: new Date(response.start_time),
-                end: new Date(response.end_time)
-            });
-        },
-        error: function (xhr) {
-            alert('Ошибка при получении данных события!');
-            console.error(xhr.responseText);
-        }
-    });
-};
+                        // Открытие модального окна для редактирования
+                        openEditModal({
+                            id: eventId,
+                            title: response.title,
+                            description: response.description,
+                            table_number: response.table_id,
+                            start: new Date(response.start_time),
+                            end: new Date(response.end_time)
+                        });
+                    },
+                    error: function (xhr) {
+                        alert('Ошибка при получении данных события!');
+                        console.error(xhr.responseText);
+                    }
+                });
+            };
 
             // Helper function to get CSRF-token
             function getCookie(name) {
@@ -523,7 +546,12 @@ document.getElementById('change-event').onclick = function () {
             const diffMs = endTime - startTime;
             const diffHours = diffMs / (1000 * 60 * 60);
             const roundedHours = Math.round(diffHours * 2) / 2;
-
+            // Проверка максимальной продолжительности
+            if (diffHours > 3) {
+                alert('Максимальная продолжительность бронирования - 3 часа');
+                endTimePicker.setDate(new Date(startTime.getTime() + 3 * 60 * 60 * 1000), true);
+                return;
+            }
             const tableSelect = document.getElementById('id_table');
             const selectedOption = tableSelect.options[tableSelect.selectedIndex];
             const pricePerHour = parseFloat(selectedOption.getAttribute('data-price-hour')) || 0;
@@ -539,8 +567,20 @@ document.getElementById('change-event').onclick = function () {
             document.getElementById('total-cost').value = parseInt(totalCost);
         }
 
+
         // Save selected time when opening the modal
         document.getElementById('eventModal').addEventListener('shown.bs.modal', function () {
+               const isAdmin = {{ is_admin|yesno:"true,false" }};
+            fetch('/api/user_events_count/')  // Нужно создать соответствующий API endpoint
+                .then(response => response.json())
+                .then(data => {
+                    if (data.count >= 3  && !isAdmin) {
+                        alert('Вы уже имеете максимальное количество бронирований (3)');
+                        this.hide();
+                    }
+                });
+
+
             if (!startTimePicker.selectedDates[0]) {
                 let today = new Date();
                 today.setHours(0, 0, 0, 0);  // Set to midnight
@@ -554,5 +594,31 @@ document.getElementById('change-event').onclick = function () {
             }
             calculateTimeAndCost();
         });
+
+        function checkBeforeEventModal(actionCallback) {
+            if (userId === null) {
+                alert('Для создания бронирования необходимо войти в систему');
+                return;
+            }
+
+            if (isAdmin) {
+                actionCallback();
+                return;
+            }
+
+            fetch('/api/user_events_count/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.count >= data.max_events) {
+                        alert(`Вы уже имеете максимальное количество бронирований (${data.max_events})`);
+                    } else {
+                        actionCallback();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    actionCallback();
+                });
+        }
     </script>
 {% endblock %}

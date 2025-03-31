@@ -12,7 +12,7 @@ class DashboardView( View):
     def get(self, request, *args, **kwargs):
         events = Event.objects.get_all_events(user=request.user)
         running_events = Event.objects.get_running_events(user=request.user)
-        #latest_events = Event.objects.filter(user=request.user).order_by("-id")[:10]
+        latest_events = Event.objects.filter(user=request.user).order_by("-id")[:10]
         completed_events = Event.objects.get_completed_events(user=request.user)
         upcoming_events = Event.objects.get_upcoming_events(user=request.user)
         context = {

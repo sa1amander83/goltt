@@ -4,6 +4,7 @@ import json
 from django.contrib import messages
 from django.db.models import Sum, DurationField, F, Avg
 from django.db.models.functions import Cast
+from django.utils import timezone
 from django.utils.dateparse import parse_datetime, parse_date
 from django.shortcuts import render, redirect
 from django.http import HttpResponseRedirect
@@ -134,16 +135,20 @@ from django.views import generic
 from django.contrib.auth.mixins import LoginRequiredMixin
 
 TABLE_COLORS = {
-    1: "#610928",  # Красный
-    2: "#063b14",  # Зеленый
-    3: "#092266",  # Синий
-    4: "#b8870d",  # Оранжевый
-    5: "#4a074a",  # Фиолетовый
+    1: "#3498db",  # Синий
+    2: "#2ecc71",  # Зеленый
+    3: "#e74c3c",  # Красный
+    4: "#9b59b6",  # Фиолетовый
+    5: "#f1c40f",  # Желтый
+    'user': "#2ecc71",  # Зеленый для своих событий
+    'other': "#cccccc",  # Серый для чужих событий
+    'default': "#3498db",  # Синий по умолчанию
 }
 
 logger = logging.getLogger(__name__)
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
+
 
 class CalendarViewNew(generic.View):
     # class CalendarViewNew(LoginRequiredMixin, generic.View):
@@ -170,6 +175,8 @@ class CalendarViewNew(generic.View):
         # Подготовка списка событий
         event_list = []
         for event in events_all:
+            is_owner = request.user.is_authenticated and event.user == request.user
+
             table_id = event.table.id if event.table else None
             color = TABLE_COLORS.get(table_id, "#3498db")
             event_list.append({
@@ -178,7 +185,9 @@ class CalendarViewNew(generic.View):
                 "start": event.start_time.strftime("%Y-%m-%dT%H:%M:%S"),
                 "end": event.end_time.strftime("%Y-%m-%dT%H:%M:%S"),
                 "description": event.description,
-                "color": color,
+                "color": self.get_event_color(event, request.user, is_owner),
+                "backgroundColor": self.get_event_color(event, request.user, is_owner),
+                "borderColor": self.get_event_color(event, request.user, is_owner),
                 "table_number": table_id,
                 "table_description": event.table.table_description,
                 "total_time": event.total_time
@@ -195,6 +204,13 @@ class CalendarViewNew(generic.View):
             "events_month": events_all,
             "current_bookings": current_bookings,
             "tables": tables_with_prices,
+            "is_admin": request.user.is_superuser,
+            "user_id": request.user.id if request.user.is_authenticated else None,
+            "is_authenticated": request.user.is_authenticated,
+
+            "user_events_count": Event.objects.filter(
+                user=request.user).count() if request.user.is_authenticated else 0,
+            "max_events": 3,
         }
         return render(request, self.template_name, context)
 
@@ -206,8 +222,36 @@ class CalendarViewNew(generic.View):
             return redirect("accounts:signin")
         form = self.form_class(request.POST)
         if form.is_valid():
+
+            if not request.user.is_superuser:
+                user_events_count = Event.objects.filter(user=request.user).count()
+                if user_events_count >= 3:
+                    messages.error(request, "Вы можете иметь не более 3 бронирований одновременно.")
+                    return redirect("calendarapp:calendar")
+
+
+            start_time = parse_datetime(request.POST.get("start_time"))
+            end_time = parse_datetime(request.POST.get("end_time"))
+
+            # Проверка продолжительности бронирования
+            duration = end_time - start_time
+            if not request.user.is_superuser:
+                duration = end_time - start_time
+                if duration.total_seconds() > 3 * 3600:
+                    messages.error(request, "Максимальная продолжительность бронирования - 3 часа.")
+                    return redirect("calendarapp:calendar")
             event = form.save(commit=False)
 
+
+            # Проверка что время не в прошлом
+            if start_time < timezone.now():
+                messages.error(request, "Нельзя создавать события в прошлом!")
+                return redirect("calendarapp:calendar")
+
+            # Проверка что для сегодняшнего дня время не раньше текущего
+            if start_time.date() == timezone.now().date() and start_time < timezone.now():
+                messages.error(request, "На сегодня можно бронировать только время после текущего момента!")
+                return redirect("calendarapp:calendar")
             # Проверка аутентификации пользователя
             if not request.user.is_authenticated:
                 messages.error(request, "Для создания события необходимо войти в систему.")
@@ -253,7 +297,6 @@ class CalendarViewNew(generic.View):
         messages.error(request, "Ошибка при заполнении формы")
         return render(request, self.template_name, {"form": form})
 
-
     def get_available_tables(self, request):
         """AJAX-запрос для получения свободных столов"""
         start_time_str = request.GET.get("start_time")
@@ -282,6 +325,26 @@ class CalendarViewNew(generic.View):
         return JsonResponse({
             "tables": list(available_tables)
         }, safe=False)
+
+
+    def get_event_color(self, event, user, is_owner):
+        """
+        Определяет цвет события в зависимости от:
+        - Является ли пользователь админом
+        - Принадлежит ли событие текущему пользователю
+        - Номера стола
+        """
+        if not user.is_authenticated:
+            return TABLE_COLORS['other']
+
+        if is_owner:
+            return TABLE_COLORS['user']
+
+        if user.is_superuser:
+            table_id = event.table.id if event.table else None
+            return TABLE_COLORS.get(table_id, TABLE_COLORS['default'])
+
+        return TABLE_COLORS['other']
 
 
 def delete_event(request, event_id):
@@ -348,7 +411,6 @@ def change_event(request, event_id):
     return JsonResponse({'message': 'Метод не поддерживается!'}, status=405)
 
 
-
 from django.utils.dateparse import parse_date
 
 
@@ -394,3 +456,15 @@ def get_table_statistics(request):
         # "average_booking_time": avg_time,
         "sum_time": sum_time
     })
+
+
+class UserEventsCountView(generic.View):
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Not authenticated'}, status=403)
+
+        return JsonResponse({
+            'count': Event.objects.filter(user=request.user).count(),
+            'is_admin': request.user.is_superuser,
+            'max_events': 3 if not request.user.is_superuser else None
+        })
