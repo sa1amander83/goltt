@@ -468,3 +468,8 @@ class UserEventsCountView(generic.View):
             'is_admin': request.user.is_superuser,
             'max_events': 3 if not request.user.is_superuser else None
         })
+
+class UserStatsView(generic.View):
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Not authenticated'}, status=403)

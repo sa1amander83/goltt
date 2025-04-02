@@ -42,6 +42,7 @@ urlpatterns = [
         name="completed_events",
     ),
     path("stats/", AdminStatsView.as_view(), name="admin_stats"),
+    path("user_stats/", views.UserStatsView.as_view(), name="user_stats"),
 
 path('get_table_statistics/', views.get_table_statistics, name='get_table_statistics'),
 path('api/user_events_count/', views.UserEventsCountView.as_view(), name='user_events_count'),

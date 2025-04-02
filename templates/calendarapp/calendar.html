@@ -198,7 +198,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{% static 'js/ru.js' %}"></script>
     <script>
-        // Helper functions for formatting dates
+         const isAdmin = {{ is_admin|yesno:"true,false" }};
         function formatDateTime(dateTime) {
             return new Date(dateTime).toLocaleString('ru-RU', {
                 weekday: 'long',
@@ -547,7 +547,7 @@
             const diffHours = diffMs / (1000 * 60 * 60);
             const roundedHours = Math.round(diffHours * 2) / 2;
             // Проверка максимальной продолжительности
-            if (diffHours > 3) {
+            if (diffHours > 3 && !isAdmin) {
                 alert('Максимальная продолжительность бронирования - 3 часа');
                 endTimePicker.setDate(new Date(startTime.getTime() + 3 * 60 * 60 * 1000), true);
                 return;

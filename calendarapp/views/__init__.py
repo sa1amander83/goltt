@@ -11,7 +11,8 @@ from .other_views import (
     next_week,
     next_day, change_event,
     get_table_statistics,
-    UserEventsCountView
+    UserEventsCountView,
+    UserStatsView
 )
 
 __all__ = [

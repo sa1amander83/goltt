@@ -86,3 +86,16 @@ class Event(EventAbstract):
     def get_html_url(self):
         url = reverse("calendarapp:event-detail", args=(self.id,))
         return f'<a href="{url}"> {self.title} </a>'
+
+
+class UserEventStats(EventAbstract):
+    """ User event stats """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="event_stats")
+    table = models.ForeignKey(Tables, on_delete=models.CASCADE, related_name="event_stats")
+    total_time = models.FloatField(default=0)
+    total_cost = models.FloatField(default=0)
+    total_events = models.IntegerField(default=0)
+
+    def __str__(self):
+        return str(self.user)

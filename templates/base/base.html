@@ -195,7 +195,7 @@
             </li>
             <li>
                 <a class="app-menu__item" href="{% url 'calendarapp:admin_stats' %}"><i
-                        class="app-menu__icon fa fa-file-code-o"></i><span class="app-menu__label">Отчет</span></a>
+                        class="app-menu__icon fa  fa-bar-chart"></i><span class="app-menu__label">Отчет</span></a>
             </li>
 
             <li class="treeview">
@@ -225,11 +225,14 @@
                 </ul>
 
             </li>
-
+  <li>
+                <a class="app-menu__item" href="{% url 'calendarapp:user_stats' %}"><i
+                        class="app-menu__icon fa fa-usersпп"></i><span class="app-menu__label">Посетители</span></a>
+            </li>
         {% endif %}
 
 
-    {% if request.user.is_authenticated %}
+    {% if request.user.is_authenticated and not request.user.is_superuser %}
     <li>
         <a class="app-menu__item" href="{% url 'dashboard' %}"><i
                 class="app-menu__icon fa fa-dashboard"></i><span
