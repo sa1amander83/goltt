@@ -1,12 +1,12 @@
 {% extends 'base/base.html' %}
 {% load static %}
-
+{% load custom_filters %}
 {% block title %}События{% endblock title %}
 
 {% block breadcrumb %}
     <div>
         <h1><i class="fa fa-dashboard"></i> Таблица</h1>
-        <p>Список событий</p>
+        <p>Список текущих событий</p>
     </div>
     <ul class="app-breadcrumb breadcrumb">
         <li class="breadcrumb-item"><i class="fa fa-home fa-lg"></i></li>
@@ -15,44 +15,50 @@
 {% endblock breadcrumb %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-12">
-        <div class="tile">
-            <div class="tile-body">
-                <div class="table-responsive">
-                    <div id="sampleTable_wrapper" class="dataTables_wrapper container-fluid dt-bootstrap4 no-footer">
-                        <div class="row">
-                            <div class="col-sm-12">
-                                <table class="table table-hover table-bordered dataTable no-footer" id="sampleTable" role="grid" aria-describedby="sampleTable_info">
-                                    <thead>
-                                        <tr role="row">
-                                            <th class="sorting_asc" tabindex="0" aria-controls="sampleTable" rowspan="1" colspan="1" aria-sort="ascending" aria-label="Name: activate to sort column descending" style="width: 261.641px;">Событие</th>
-                                            <th class="sorting" tabindex="0" aria-controls="sampleTable" rowspan="1" colspan="1" aria-label="Position: activate to sort column ascending" style="width: 417.312px;">Описание</th>
-                                            <th class="sorting" tabindex="0" aria-controls="sampleTable" rowspan="1" colspan="1" aria-label="Office: activate to sort column ascending" style="width: 189.281px;">Начало</th>
-                                            <th class="sorting" tabindex="0" aria-controls="sampleTable" rowspan="1" colspan="1" aria-label="Age: activate to sort column ascending" style="width: 102.141px;">Конец</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for event in object_list %}
-                                            <tr role="row" class="odd">
-                                                <td class="sorting_1">{{ forloop.counter }}</td>
-                                                <td>{{ event.title }}</td>
-                                                <td>{{ event.start_time }}</td>
-                                                <td>{{ event.end_time }}</td>
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
+<div class="container mt-4">
+    <h2>
+        {% if current_status == 'running' %}Текущие бронирования
+        {% elif current_status == 'upcoming' %}Предстоящие бронирования
+        {% else %}Завершенные бронирования{% endif %}
+    </h2>
+    
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Название</th>
+                <th>Стол</th>
+                <th>Начало</th>
+                <th>Конец</th>
+                <th>Статус оплаты</th>
+                <th>Стоимость</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in object_list %}
+            <tr>
+                <td>{{ event.title }}</td>
+                <td>Стол №{{ event.table.number }}</td>
+                <td>{{ event.start_time|date:"d.m.Y H:i" }}</td>
+                <td>{{ event.end_time|date:"d.m.Y H:i" }}</td>
+                <td>
+                    <span class="badge 
+                        {% if event.payment_status == 'paid' %}bg-success
+                        {% elif event.payment_status == 'canceled' %}bg-danger
+                        {% else %}bg-warning{% endif %}">
+                        {{ status_choices|get_item:event.payment_status }}
+                    </span>
+                </td>
+                <td>{{ event.total_cost }} руб.</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6">Нет событий</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
-{% endblock content %}
+{% endblock %}
 
 {% block extrascripts %}
     <script type="text/javascript" src="{% static 'js/plugins/jquery.dataTables.min.js' %}"></script>

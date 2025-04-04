@@ -23,31 +23,47 @@ class AllEventsListView(ListView):
 
 class RunningEventsListView(ListView):
     """ Running events list view """
-
     template_name = "calendarapp/events_list.html"
     model = Event
 
     def get_queryset(self):
         return Event.objects.get_running_events(user=self.request.user)
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['status_choices'] = dict(Event.PAYMENT_STATUS_CHOICES)
+        context['current_status'] = 'running'
+        return context
+
+
 class UpcomingEventsListView(ListView):
     """ Upcoming events list view """
-
     template_name = "calendarapp/events_list.html"
     model = Event
 
     def get_queryset(self):
         return Event.objects.get_upcoming_events(user=self.request.user)
-    
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['status_choices'] = dict(Event.PAYMENT_STATUS_CHOICES)
+        context['current_status'] = 'upcoming'
+        return context
+
+
 class CompletedEventsListView(ListView):
     """ Completed events list view """
-
     template_name = "calendarapp/events_list.html"
     model = Event
 
     def get_queryset(self):
         return Event.objects.get_completed_events(user=self.request.user)
-    
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['status_choices'] = dict(Event.PAYMENT_STATUS_CHOICES)
+        context['current_status'] = 'completed'
+        return context
 
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin

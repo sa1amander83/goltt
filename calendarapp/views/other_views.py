@@ -19,6 +19,7 @@ from django.urls import reverse_lazy, reverse
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 
+from accounts.models import User
 from calendarapp.models import EventMember, Event
 from calendarapp.models.event import Tables
 from calendarapp.utils import Calendar
@@ -469,7 +470,24 @@ class UserEventsCountView(generic.View):
             'max_events': 3 if not request.user.is_superuser else None
         })
 
+from django.db.models import Count, Sum, Q
 class UserStatsView(generic.View):
+    template_name = 'calendarapp/user_stats.html'
+
     def get(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return JsonResponse({'error': 'Not authenticated'}, status=403)
+        if not request.user.is_superuser:
+            return JsonResponse({'error': 'Доступ запрещен'}, status=403)
+
+        # Получаем статистику по пользователям
+        users_stats = User.objects.filter(
+            events__isnull=False
+        ).annotate(
+            total_events=Count('events'),
+            paid_events=Count('events', filter=Q(events__payment_status='paid')),
+            total_payments=Sum('events__total_cost', filter=Q(events__payment_status='paid'))
+        ).order_by('-total_payments')
+
+        context = {
+            'users_stats': users_stats
+        }
+        return render(request, self.template_name, context)

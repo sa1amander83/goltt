@@ -1,0 +1,36 @@
+{% extends 'base/base.html' %}
+{% load static %}
+{% block title %}Статистика{% endblock title %}
+
+{% load static %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Статистика посетителей</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ФИО</th>
+                <th>Телефон</th>
+                <th>Всего броней</th>
+                <th>Оплаченные брони</th>
+                <th>Общая сумма</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users_stats %}
+            <tr>
+                <td>{{ user.email}}</td>
+                <td>{{ user.phone|default:'Не указан' }}</td>
+                <td>{{ user.total_events }}</td>
+                <td>{{ user.paid_events }}</td>
+                <td>{{ user.total_payments|default:0 }} руб.</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5">Нет данных о посетителях</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

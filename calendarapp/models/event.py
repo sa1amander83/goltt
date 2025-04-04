@@ -65,7 +65,11 @@ class Tables(models.Model):
         verbose_name_plural = 'Столы'
 class Event(EventAbstract):
     """ Event model """
-
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Ожидает оплаты'),
+        ('paid', 'Оплачено'),
+        ('canceled', 'Отменено'),
+    ]
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="events",verbose_name='гость')
     title = models.CharField(max_length=200)
     description = models.TextField()
@@ -75,12 +79,24 @@ class Event(EventAbstract):
     objects = EventManager()
     table = models.ForeignKey(Tables, on_delete=models.CASCADE, related_name="events", null=True, default=1, verbose_name='Стол')
     total_time=models.FloatField(default=0)
-
+    payment_status = models.CharField(
+        max_length=40,
+        choices=PAYMENT_STATUS_CHOICES,
+        default='ожидается оплата',
+        verbose_name='Статус оплаты'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
     def __str__(self):
         return self.title
 
     def get_absolute_url(self):
         return reverse("calendarapp:event-detail", args=(self.id,))
+
+
+    @property
+    def is_paid(self):
+        return self.payment_status == 'paid'
 
     @property
     def get_html_url(self):
