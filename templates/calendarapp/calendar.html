@@ -109,7 +109,13 @@
                                     <div class="modal-footer">
                                         <button id="modalClose2" type="button" class="btn btn-danger">Закрыть</button>
                                         <button type="submit" class="btn btn-primary">Сохранить</button>
+                                    
+                                      <button id="payButton" type="button" class="btn btn-success">Оплатить</button>
                                     </div>
+                                    
+                                  
+                                    
+                                    
                                 {% else %}
                                     <div class="modal-footer"> Вы не зарегистрированы!
                                         <a href="{% url 'accounts:signup' %}"
@@ -242,7 +248,7 @@
                 slotDuration: '00:30:00',
                 slotLabelInterval: '00:30',
                 slotMinTime: '09:00:00',
-                slotMaxTime: '23:00:00',
+                slotMaxTime: '24:00:00',
                 initialDate: today,
                 navLinks: true,
                 {#selectable: true,#}
@@ -620,5 +626,57 @@
                     actionCallback();
                 });
         }
+        document.getElementById('payButton').addEventListener('click', function() {
+    // Получаем данные из формы
+    const title = document.getElementById('id_title').value;
+    const description = document.getElementById('id_description').value;
+    const startTime = document.getElementById('id_start_time').value;
+    const endTime = document.getElementById('id_end_time').value;
+    const tableId = document.getElementById('id_table').value;
+    const totalCost = document.getElementById('total-cost').value;
+
+    // Проверяем, заполнены ли все поля
+    if (!title || !startTime || !endTime || !tableId || !totalCost) {
+        alert('Пожалуйста, заполните все поля перед оплатой');
+        return;
+    }
+
+    // Создаем платеж через ЮКассу
+    fetch('/create_yookassa_payment/', {  // Этот endpoint нужно создать в вашем Django
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            amount: totalCost,
+            booking_data: {
+                title: title,
+                description: description,
+                start_time: startTime,
+                end_time: endTime,
+                table: tableId
+            }
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.confirmation_url) {
+            // Перенаправляем пользователя на страницу оплаты ЮКассы
+            window.open(data.confirmation_url, '_blank');
+        } else {
+            alert('Ошибка при создании платежа: ' + (data.error || 'Неизвестная ошибка'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Произошла ошибка при создании платежа');
+    });
+});
+        
+        
+        
+        
+        
     </script>
 {% endblock %}
