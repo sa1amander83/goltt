@@ -1,6 +1,9 @@
 # cal/views.py
 
 import json
+import os
+
+from django.conf import settings
 from django.contrib import messages
 from django.db.models import Sum, DurationField, F, Avg
 from django.db.models.functions import Cast
@@ -19,7 +22,6 @@ from django.urls import reverse_lazy, reverse
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 
-from accounts.models import User
 from calendarapp.models import EventMember, Event
 from calendarapp.models.event import Tables
 from calendarapp.utils import Calendar
@@ -470,24 +472,56 @@ class UserEventsCountView(generic.View):
             'max_events': 3 if not request.user.is_superuser else None
         })
 
-from django.db.models import Count, Sum, Q
 class UserStatsView(generic.View):
-    template_name = 'calendarapp/user_stats.html'
-
     def get(self, request, *args, **kwargs):
-        if not request.user.is_superuser:
-            return JsonResponse({'error': 'Доступ запрещен'}, status=403)
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Not authenticated'}, status=403)
 
-        # Получаем статистику по пользователям
-        users_stats = User.objects.filter(
-            events__isnull=False
-        ).annotate(
-            total_events=Count('events'),
-            paid_events=Count('events', filter=Q(events__payment_status='paid')),
-            total_payments=Sum('events__total_cost', filter=Q(events__payment_status='paid'))
-        ).order_by('-total_payments')
 
-        context = {
-            'users_stats': users_stats
-        }
-        return render(request, self.template_name, context)
+import uuid
+import yookassa
+from yookassa import Configuration, Payment
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+
+# Настройте ЮКассу (лучше вынести в settings.py)
+Configuration.account_id = settings.SHOP_SECRET_KEY
+Configuration.secret_key = settings.ACCOUNT_ID
+
+
+@csrf_exempt
+def create_yookassa_payment(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            amount = float(data['amount'])
+            booking_data = data['booking_data']
+
+            # Создаем платеж в ЮКассе
+            idempotence_key = str(uuid.uuid4())
+            payment = Payment.create({
+                "amount": {
+                    "value": str(amount),
+                    "currency": "RUB"
+                },
+                "confirmation": {
+                    "type": "redirect",
+                    "return_url": "http://your-site.com/booking/success/"  # URL после успешной оплаты
+                },
+                "capture": True,
+                "description": f"Бронирование стола: {booking_data['title']}",
+                "metadata": {
+                    "booking_data": booking_data
+                }
+            }, idempotence_key)
+
+            return JsonResponse({
+                'id': payment.id,
+                'status': payment.status,
+                'confirmation_url': payment.confirmation.confirmation_url
+            })
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+    return JsonResponse({'error': 'Invalid request'}, status=400)

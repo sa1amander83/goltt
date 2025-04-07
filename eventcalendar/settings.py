@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 """
 
 import os
+from os import environ
+
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -93,7 +95,7 @@ DATABASES = {
         'USER': 'postgres',
         'PASSWORD': '123',
         'HOST': '127.0.0.1',
-        'PORT': '5434',
+        'PORT': '5432',
 
     }
 }
@@ -144,3 +146,8 @@ STATICFILES_DIRS = (os.path.join(BASE_DIR, "static"),)
 #
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media/') # 'data' is my media folder
 MEDIA_URL = '/media/'
+
+from decouple import config
+
+SHOP_SECRET_KEY = config('SECRET_KEY')
+ACCOUNT_ID = config('ACCOUNT_ID')

@@ -12,7 +12,8 @@ from .other_views import (
     next_day, change_event,
     get_table_statistics,
     UserEventsCountView,
-    UserStatsView
+    UserStatsView,
+    create_yookassa_payment
 )
 
 __all__ = [
