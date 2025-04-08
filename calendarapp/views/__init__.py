@@ -13,7 +13,11 @@ from .other_views import (
     get_table_statistics,
     UserEventsCountView,
     UserStatsView,
-    create_yookassa_payment
+    create_yookassa_payment,
+payment_callback,
+MyBookingsView,
+pay_booking
+
 )
 
 __all__ = [
@@ -34,3 +38,4 @@ __all__ = [
     change_event,
 
 ]
+

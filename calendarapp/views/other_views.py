@@ -21,9 +21,10 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy, reverse
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+from django.views.generic import ListView
 
 from calendarapp.models import EventMember, Event
-from calendarapp.models.event import Tables
+from calendarapp.models.event import Tables, TempBooking
 from calendarapp.utils import Calendar
 from calendarapp.forms import EventForm, AddMemberForm
 
@@ -75,7 +76,7 @@ def create_event(request):
         start_time = form.cleaned_data["start_time"]
         end_time = form.cleaned_data["end_time"]
         total_time = form.cleaned_data["total_time"]
-
+        is_paid=request.user.is_superuser
         table = form.cleaned_data["table"]
 
         Event.objects.get_or_create(
@@ -85,7 +86,8 @@ def create_event(request):
             start_time=start_time,
             end_time=end_time,
             table=table,
-            total_time=total_time
+            total_time=total_time,
+            is_paid = is_paid
         )
         return HttpResponseRedirect(reverse("calendarapp:calendar"))
     return render(request, "event.html", {"form": form})
@@ -485,8 +487,16 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 # Настройте ЮКассу (лучше вынести в settings.py)
-Configuration.account_id = settings.SHOP_SECRET_KEY
-Configuration.secret_key = settings.ACCOUNT_ID
+Configuration.account_id = settings.ACCOUNT_ID
+Configuration.secret_key = settings.SHOP_SECRET_KEY
+
+
+@csrf_exempt
+def check_payment_status(request, payment_id):
+    if request.method == 'GET':
+        payment = Payment.find_one(payment_id)
+        return JsonResponse({'status': payment.status})
+    return JsonResponse({'error': 'Invalid request'}, status=400)
 
 
 @csrf_exempt
@@ -497,7 +507,20 @@ def create_yookassa_payment(request):
             amount = float(data['amount'])
             booking_data = data['booking_data']
 
-            # Создаем платеж в ЮКассе
+            # Сохраняем временную бронь
+            temp_booking = TempBooking.objects.create(
+                title=booking_data['title'],
+                description=booking_data.get('description', ''),
+                start_time=booking_data['start_time'],
+                end_time=booking_data['end_time'],
+                table_id=booking_data['table'],
+                user_id=booking_data.get('user_id'),
+                amount=amount,
+                status='pending'
+            )
+
+            # Создаем платеж в ЮKassa
+            return_url = f"http://127.0.0.1:8000/payment_status/{temp_booking.id}/"
             idempotence_key = str(uuid.uuid4())
             payment = Payment.create({
                 "amount": {
@@ -506,18 +529,21 @@ def create_yookassa_payment(request):
                 },
                 "confirmation": {
                     "type": "redirect",
-                    "return_url": "http://your-site.com/booking/success/"  # URL после успешной оплаты
+                    "return_url": return_url
                 },
                 "capture": True,
                 "description": f"Бронирование стола: {booking_data['title']}",
                 "metadata": {
-                    "booking_data": booking_data
+                    "temp_booking_id": str(temp_booking.id)
                 }
             }, idempotence_key)
 
+            # Сохраняем ID платежа
+            temp_booking.payment_id = payment.id
+            temp_booking.save()
+
             return JsonResponse({
-                'id': payment.id,
-                'status': payment.status,
+                'payment_id': payment.id,
                 'confirmation_url': payment.confirmation.confirmation_url
             })
 
@@ -525,3 +551,104 @@ def create_yookassa_payment(request):
             return JsonResponse({'error': str(e)}, status=400)
 
     return JsonResponse({'error': 'Invalid request'}, status=400)
+
+
+# views.py
+
+# views.py
+@csrf_exempt
+def payment_callback(request, temp_booking_id):
+    temp_booking = get_object_or_404(TempBooking, id=temp_booking_id)
+
+    try:
+        payment = Payment.find_one(temp_booking.payment_id)
+
+        if payment.status == 'succeeded' and temp_booking.status != 'succeeded':
+            # Создаем объект бронирования
+            booking = Event(
+                title=temp_booking.title,
+                description=temp_booking.description,
+                start_time=temp_booking.start_time,
+                end_time=temp_booking.end_time,
+                table_id=temp_booking.table_id,
+                user_id=temp_booking.user_id,  # Используем user_id вместо user
+                is_paid=True,  # Устанавливаем статус оплаты
+                total_cost=temp_booking.amount
+            )
+
+            # Сохраняем в БД
+            booking.save()
+
+            # Обновляем временную бронь
+            temp_booking.status = 'succeeded'
+            temp_booking.save()
+
+            messages.success(request, 'Бронирование успешно создано!')
+            return redirect('calendarapp:my_bookings')
+
+    except Exception as e:
+        messages.error(request, f'Ошибка создания брони: {str(e)}')
+        return redirect('calendarapp:my_bookings')
+
+class MyBookingsView(LoginRequiredMixin, ListView):
+    template_name = 'calendarapp/my_bookings.html'
+    context_object_name = 'bookings'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Event.objects.filter(user=self.request.user).select_related('table').order_by('-start_time')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['now'] = timezone.now()
+        return context
+
+
+def pay_booking(request, booking_id):
+    booking = get_object_or_404(Event, id=booking_id, user=request.user)
+
+    if booking.is_paid:
+        messages.warning(request, 'Это бронирование уже оплачено')
+        return redirect('calendarapp:my_bookings')
+
+    # Создаем временную бронь для оплаты
+    temp_booking = TempBooking.objects.create(
+        title=booking.title,
+        description=booking.description,
+        start_time=booking.start_time,
+        end_time=booking.end_time,
+        table_id=booking.table_id,
+        user=request.user,
+        amount=booking.total_cost,
+        status='pending'
+    )
+
+    # Создаем абсолютный URL для возврата
+    return_url = request.build_absolute_uri(
+        reverse('calendarapp:payment_status', args=[temp_booking.id])
+    )
+
+    # Создаем платеж в ЮKassa
+    idempotence_key = str(uuid.uuid4())
+    payment = Payment.create({
+        "amount": {
+            "value": str(booking.total_cost),
+            "currency": "RUB"
+        },
+        "confirmation": {
+            "type": "redirect",
+            "return_url": return_url
+        },
+        "capture": True,
+        "description": f"Оплата брони стола: {booking.title}",
+        "metadata": {
+            "temp_booking_id": str(temp_booking.id),
+            "booking_id": str(booking.id)
+        }
+    }, idempotence_key)
+
+    # Сохраняем ID платежа
+    temp_booking.payment_id = payment.id
+    temp_booking.save()
+
+    return redirect(payment.confirmation.confirmation_url)

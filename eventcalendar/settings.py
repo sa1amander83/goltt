@@ -149,5 +149,5 @@ MEDIA_URL = '/media/'
 
 from decouple import config
 
-SHOP_SECRET_KEY = config('SECRET_KEY')
+SHOP_SECRET_KEY = config('SHOP_SECRET_KEY')
 ACCOUNT_ID = config('ACCOUNT_ID')

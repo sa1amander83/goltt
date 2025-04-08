@@ -44,9 +44,11 @@ urlpatterns = [
     path("stats/", AdminStatsView.as_view(), name="admin_stats"),
     path("user_stats/", views.UserStatsView.as_view(), name="user_stats"),
 
-path('get_table_statistics/', views.get_table_statistics, name='get_table_statistics'),
-path('api/user_events_count/', views.UserEventsCountView.as_view(), name='user_events_count'),
-path('create_yookassa_payment/', views.create_yookassa_payment, name='create_yookassa_payment'),
-
+    path('get_table_statistics/', views.get_table_statistics, name='get_table_statistics'),
+    path('api/user_events_count/', views.UserEventsCountView.as_view(), name='user_events_count'),
+    path('create_yookassa_payment/', views.create_yookassa_payment, name='create_yookassa_payment'),
+    path('my_bookings/', views.MyBookingsView.as_view(), name='my_bookings'),
+    path('pay_booking/<int:booking_id>/', views.pay_booking, name='pay_booking'),
+    path('payment_status/<int:temp_booking_id>/', views.payment_callback, name='payment_status'),
 
 ]

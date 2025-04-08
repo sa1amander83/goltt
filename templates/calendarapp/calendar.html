@@ -108,8 +108,9 @@
                                 {% if request.user.is_authenticated %}
                                     <div class="modal-footer">
                                         <button id="modalClose2" type="button" class="btn btn-danger">Закрыть</button>
+                                        {% if request.user.is_superuser %}
                                         <button type="submit" class="btn btn-primary">Сохранить</button>
-                                    
+                                        {% endif %}
                                       <button id="payButton" type="button" class="btn btn-success">Оплатить</button>
                                     </div>
                                     
@@ -179,6 +180,7 @@
                                         <button id="add-to-next-day" data-event-id-day="" type="button"
                                                 class="btn btn-primary">Завтра
                                         </button>
+                                       <button id="payButton" type="button" class="btn btn-success">Оплатить</button>
 
                                     </div>
                                 {% endif %}
@@ -626,8 +628,8 @@
                     actionCallback();
                 });
         }
-        document.getElementById('payButton').addEventListener('click', function() {
-    // Получаем данные из формы
+      document.getElementById('payButton').addEventListener('click', function() {
+    const isAdmin = {{ request.user.is_superuser|yesno:"true,false" }};
     const title = document.getElementById('id_title').value;
     const description = document.getElementById('id_description').value;
     const startTime = document.getElementById('id_start_time').value;
@@ -635,14 +637,19 @@
     const tableId = document.getElementById('id_table').value;
     const totalCost = document.getElementById('total-cost').value;
 
-    // Проверяем, заполнены ли все поля
     if (!title || !startTime || !endTime || !tableId || !totalCost) {
         alert('Пожалуйста, заполните все поля перед оплатой');
         return;
     }
 
-    // Создаем платеж через ЮКассу
-    fetch('/create_yookassa_payment/', {  // Этот endpoint нужно создать в вашем Django
+    // Для администратора - просто сохраняем
+    if (isAdmin) {
+        document.querySelector('#eventModal form').submit();
+        return;
+    }
+
+    // Для обычного пользователя - создаем платеж
+    fetch('/create_yookassa_payment/', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -655,15 +662,44 @@
                 description: description,
                 start_time: startTime,
                 end_time: endTime,
-                table: tableId
+                table: tableId,
+                user_id: {{ request.user.id|default:"null" }}
             }
         })
     })
     .then(response => response.json())
     .then(data => {
         if (data.confirmation_url) {
-            // Перенаправляем пользователя на страницу оплаты ЮКассы
-            window.open(data.confirmation_url, '_blank');
+            // Открываем платеж в новом окне
+            const paymentWindow = window.open(data.confirmation_url, '_blank');
+            
+            // Проверяем статус платежа каждые 5 секунд
+            const checkPaymentStatus = setInterval(() => {
+                fetch(`/check_payment_status/${data.payment_id}/`)
+                .then(res => res.json())
+                .then(status => {
+                    if (status === 'succeeded') {
+                        clearInterval(checkPaymentStatus);
+                        alert('Оплата прошла успешно! Бронь сохранена.');
+                        // Закрываем модальное окно
+                        bootstrap.Modal.getInstance(document.getElementById('eventModal')).hide();
+                        // Обновляем календарь
+                        calendar.refetchEvents();
+                    } else if (status === 'canceled') {
+                        clearInterval(checkPaymentStatus);
+                        alert('Оплата отменена');
+                    }
+                });
+            }, 5000);
+            
+            // Следим за закрытием окна оплаты
+            const checkWindowClosed = setInterval(() => {
+                if (paymentWindow.closed) {
+                    clearInterval(checkWindowClosed);
+                    clearInterval(checkPaymentStatus);
+                }
+            }, 1000);
+            
         } else {
             alert('Ошибка при создании платежа: ' + (data.error || 'Неизвестная ошибка'));
         }
@@ -673,8 +709,6 @@
         alert('Произошла ошибка при создании платежа');
     });
 });
-        
-        
         
         
         
