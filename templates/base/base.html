@@ -155,7 +155,16 @@
                         Войти</a>
             </p>
           </li>
-
+         <li><p></p></li>
+         
+            <li class="ml-3">    <p class="mt-2">
+                    <a class="dropdown-item" href="{% url 'accounts:signup' %}"><i class="fa fa-user-plus fa-md"></i>
+                        Регистрация</a>
+            </p>
+          </li>
+         
+         
+         
       {% endif %}
 
     </ul>
@@ -189,7 +198,7 @@
 
         {% if request.user.is_superuser %}
             <li>
-                <a class="app-menu__item" href="{% url 'dashboard' %}"><i
+                <a class="app-menu__item" href="{% url 'calendarapp:my_bookings' %}"><i
                         class="app-menu__icon fa fa-dashboard"></i><span
                         class="app-menu__label">Бронирования</span></a>
             </li>

@@ -41,13 +41,12 @@
                 <td>{{ event.start_time|date:"d.m.Y H:i" }}</td>
                 <td>{{ event.end_time|date:"d.m.Y H:i" }}</td>
                 <td>
-                    <span class="badge 
-                        {% if event.payment_status == 'paid' %}bg-success
-                        {% elif event.payment_status == 'canceled' %}bg-danger
-                        {% else %}bg-warning{% endif %}">
-                        {{ status_choices|get_item:event.payment_status }}
-                    </span>
-                </td>
+                                {% if event.is_paid %}
+                                    <span class="badge bg-success">Paid</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Pending</span>
+                                {% endif %}
+                            </td>
                 <td>{{ event.total_cost }} руб.</td>
             </tr>
             {% empty %}

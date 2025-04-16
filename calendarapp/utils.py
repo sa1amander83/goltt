@@ -43,3 +43,27 @@ class Calendar(HTMLCalendar):
         for week in self.monthdays2calendar(self.year, self.month):
             cal += f"{self.formatweek(week, events)}\n"
         return cal
+
+
+# calendarapp/management/commands/check_payments.py
+from django.core.management.base import BaseCommand
+from calendarapp.models import Event
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class Command(BaseCommand):
+    help = 'Check pending payments status'
+
+    def handle(self, *args, **options):
+        pending_events = Event.objects.filter(payment_status='pending').exclude(payment_id__isnull=True)
+
+        for event in pending_events:
+            try:
+                if event.update_payment_status():
+                    logger.info(f"Updated payment status for event {event.id}")
+                else:
+                    logger.warning(f"Failed to update payment status for event {event.id}")
+            except Exception as e:
+                logger.error(f"Error checking payment for event {event.id}: {str(e)}")

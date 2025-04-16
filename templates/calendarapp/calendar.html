@@ -109,14 +109,16 @@
                                     <div class="modal-footer">
                                         <button id="modalClose2" type="button" class="btn btn-danger">Закрыть</button>
                                         {% if request.user.is_superuser %}
-                                        <button type="submit" class="btn btn-primary">Сохранить</button>
+                                            <button type="submit" name="save" class="btn btn-primary">Забронировать
+                                            </button>
                                         {% endif %}
-                                      <button id="payButton" type="button" class="btn btn-success">Оплатить</button>
+                                        <button id="payNewButton" type="button" class="btn btn-success">Оплатить
+                                        </button>
                                     </div>
-                                    
-                                  
-                                    
-                                    
+
+
+
+
                                 {% else %}
                                     <div class="modal-footer"> Вы не зарегистрированы!
                                         <a href="{% url 'accounts:signup' %}"
@@ -180,7 +182,8 @@
                                         <button id="add-to-next-day" data-event-id-day="" type="button"
                                                 class="btn btn-primary">Завтра
                                         </button>
-                                       <button id="payButton" type="button" class="btn btn-success">Оплатить</button>
+                                        <button id="payExistingButton" type="button" class="btn btn-success">Оплатить
+                                        </button>
 
                                     </div>
                                 {% endif %}
@@ -206,7 +209,8 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{% static 'js/ru.js' %}"></script>
     <script>
-         const isAdmin = {{ is_admin|yesno:"true,false" }};
+        const isAdmin = {{ is_admin|yesno:"true,false" }};
+
         function formatDateTime(dateTime) {
             return new Date(dateTime).toLocaleString('ru-RU', {
                 weekday: 'long',
@@ -310,6 +314,7 @@
                 // Event click logic
                 eventClick: function (info) {
                     const event = info.event;
+                    document.getElementById('payExistingButton').setAttribute('data-event-id', event.id);
 
                     // Populate detail modal with event information
                     document.getElementById('title_event_detail').textContent = event.title;
@@ -367,24 +372,30 @@
 
             // Delete event button click handler
             document.getElementById('delete-event-button').addEventListener('click', function () {
-                const eventId = this.getAttribute('data-event-id');
-                if (confirm('Хотите удалить событие?')) {
-                    $.ajax({
-                        url: `/delete_event/${eventId}/`,
-                        type: 'POST',
-                        data: {
-                            csrfmiddlewaretoken: '{{ csrf_token }}',
-                        },
-                        success: function (response) {
-                            alert(response.message);
-                            calendar.refetchEvents(); // Refresh events after deletion
-                        },
-                        error: function (xhr, status, error) {
-                            alert('Ошибка удаления!');
-                        }
-                    });
+                    const eventId = this.getAttribute('data-event-id');
+                    if (confirm('Хотите удалить событие?')) {
+                        $.ajax({
+                            url: `/delete_event/${eventId}/`,
+                            type: 'POST',
+                            data: {
+                                csrfmiddlewaretoken: '{{ csrf_token }}',
+                            },
+                            success: function (response) {
+                                alert(response.message);
+                                calendar.refetchEvents();
+                                window.location.reload();// Refresh events after deletion
+                            },
+                            error: function (xhr, status, error) {
+                                alert('Ошибка удаления!');
+                                window.location.reload();
+                            }
+                        });
+
+
+                    }
+
                 }
-            });
+            );
 
             // Add to next week button click handler
             document.getElementById('add-to-next-week').addEventListener('click', function () {
@@ -578,11 +589,11 @@
 
         // Save selected time when opening the modal
         document.getElementById('eventModal').addEventListener('shown.bs.modal', function () {
-               const isAdmin = {{ is_admin|yesno:"true,false" }};
+            const isAdmin = {{ is_admin|yesno:"true,false" }};
             fetch('/api/user_events_count/')  // Нужно создать соответствующий API endpoint
                 .then(response => response.json())
                 .then(data => {
-                    if (data.count >= 3  && !isAdmin) {
+                    if (data.count >= 3 && !isAdmin) {
                         alert('Вы уже имеете максимальное количество бронирований (3)');
                         this.hide();
                     }
@@ -628,89 +639,242 @@
                     actionCallback();
                 });
         }
-      document.getElementById('payButton').addEventListener('click', function() {
-    const isAdmin = {{ request.user.is_superuser|yesno:"true,false" }};
-    const title = document.getElementById('id_title').value;
-    const description = document.getElementById('id_description').value;
-    const startTime = document.getElementById('id_start_time').value;
-    const endTime = document.getElementById('id_end_time').value;
-    const tableId = document.getElementById('id_table').value;
-    const totalCost = document.getElementById('total-cost').value;
 
-    if (!title || !startTime || !endTime || !tableId || !totalCost) {
-        alert('Пожалуйста, заполните все поля перед оплатой');
-        return;
-    }
+        // Обработчик для кнопки "Оплатить" в модальном окне создания
+        document.getElementById('payButton')?.addEventListener('click', function () {
+            const form = document.querySelector('#eventModal form');
+            const formData = new FormData(form);
 
-    // Для администратора - просто сохраняем
-    if (isAdmin) {
-        document.querySelector('#eventModal form').submit();
-        return;
-    }
+            // Показываем индикатор загрузки
+            this.disabled = true;
+            const originalText = this.innerHTML;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Обработка...';
 
-    // Для обычного пользователя - создаем платеж
-    fetch('/create_yookassa_payment/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token }}'
-        },
-        body: JSON.stringify({
-            amount: totalCost,
-            booking_data: {
-                title: title,
-                description: description,
-                start_time: startTime,
-                end_time: endTime,
-                table: tableId,
-                user_id: {{ request.user.id|default:"null" }}
-            }
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.confirmation_url) {
-            // Открываем платеж в новом окне
-            const paymentWindow = window.open(data.confirmation_url, '_blank');
-            
-            // Проверяем статус платежа каждые 5 секунд
-            const checkPaymentStatus = setInterval(() => {
-                fetch(`/check_payment_status/${data.payment_id}/`)
-                .then(res => res.json())
-                .then(status => {
-                    if (status === 'succeeded') {
-                        clearInterval(checkPaymentStatus);
-                        alert('Оплата прошла успешно! Бронь сохранена.');
-                        // Закрываем модальное окно
-                        bootstrap.Modal.getInstance(document.getElementById('eventModal')).hide();
-                        // Обновляем календарь
-                        calendar.refetchEvents();
-                    } else if (status === 'canceled') {
-                        clearInterval(checkPaymentStatus);
-                        alert('Оплата отменена');
-                    }
-                });
-            }, 5000);
-            
-            // Следим за закрытием окна оплаты
-            const checkWindowClosed = setInterval(() => {
-                if (paymentWindow.closed) {
-                    clearInterval(checkWindowClosed);
-                    clearInterval(checkPaymentStatus);
+            fetch('/create_yookassa_payment/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
                 }
-            }, 1000);
-            
-        } else {
-            alert('Ошибка при создании платежа: ' + (data.error || 'Неизвестная ошибка'));
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Произошла ошибка при создании платежа');
-    });
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error('Network error');
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.confirmation_url) {
+                        window.location.href = data.confirmation_url;
+                    } else {
+                        throw new Error(data.error || 'Unknown error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Payment error:', error);
+                    alert('Ошибка при создании платежа: ' + error.message);
+                })
+                .finally(() => {
+                    this.disabled = false;
+                    this.innerHTML = originalText;
+                });
+        });
+
+        // Обработчик для кнопки "Оплатить" в модальном окне деталей
+        document.getElementById('payExistingButton')?.addEventListener('click', function () {
+            const eventId = this.getAttribute('data-event-id');
+            if (!eventId) return;
+
+            // Показываем индикатор загрузки
+            this.disabled = true;
+            const originalText = this.innerHTML;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Обработка...';
+
+            fetch(`/pay_booking/${eventId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                }
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error('Network error');
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.confirmation_url) {
+                        window.location.href = data.confirmation_url;
+                    } else {
+                        throw new Error(data.error || 'Unknown error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Payment error:', error);
+                    alert('Ошибка при создании платежа: ' + error.message);
+                })
+                .finally(() => {
+                    this.disabled = false;
+                    this.innerHTML = originalText;
+                });
+        });
+
+
+        /***   document.getElementById('payButton').addEventListener('click', function () {
+         const isAdmin = {{ request.user.is_superuser|yesno:"true,false" }};
+         const title = document.getElementById('id_title').value;
+         const description = document.getElementById('id_description').value;
+         const startTime = document.getElementById('id_start_time').value;
+         const endTime = document.getElementById('id_end_time').value;
+         const tableId = document.getElementById('id_table').value;
+         const totalCost = document.getElementById('total-cost').value;
+
+         if (!title || !startTime || !endTime || !tableId || !totalCost) {
+         alert('Пожалуйста, заполните все поля перед оплатой');
+         return;
+         }
+
+         // Для администратора - просто сохраняем
+         if (isAdmin) {
+         document.querySelector('#eventModal form').submit();
+         return;
+         }
+
+         // Для обычного пользователя - создаем платеж
+         fetch('/create_yookassa_payment/', {
+         method: 'POST',
+         headers: {
+         'Content-Type': 'application/json',
+         'X-CSRFToken': '{{ csrf_token }}'
+         },
+         body: JSON.stringify({
+         amount: totalCost,
+         booking_data: {
+         title: title,
+         description: description,
+         start_time: startTime,
+         end_time: endTime,
+         table: tableId,
+         user_id: {{ request.user.id|default:"null" }}
+         }
+         })
+         })
+         .then(response => response.json())
+         .then(data => {
+         if (data.confirmation_url) {
+         // Открываем платеж в новом окне
+         const paymentWindow = window.open(data.confirmation_url, '_blank');
+
+         // Проверяем статус платежа каждые 5 секунд
+         const checkPaymentStatus = setInterval(() => {
+         fetch(`/check_payment_status/${data.payment_id}/`)
+         .then(res => res.json())
+         .then(status => {
+         if (status === 'succeeded') {
+         clearInterval(checkPaymentStatus);
+         alert('Оплата прошла успешно! Бронь сохранена.');
+         // Закрываем модальное окно
+         bootstrap.Modal.getInstance(document.getElementById('eventModal')).hide();
+         // Обновляем календарь
+         calendar.refetchEvents();
+         } else if (status === 'canceled') {
+         clearInterval(checkPaymentStatus);
+         alert('Оплата отменена');
+         }
+         });
+         }, 5000);
+
+         // Следим за закрытием окна оплаты
+         const checkWindowClosed = setInterval(() => {
+         if (paymentWindow.closed) {
+         clearInterval(checkWindowClosed);
+         clearInterval(checkPaymentStatus);
+         }
+         }, 1000);
+
+         } else {
+         alert('Ошибка при создании платежа: ' + (data.error || 'Неизвестная ошибка'));
+         }
+         })
+         .catch(error => {
+         console.error('Error:', error);
+         alert('Произошла ошибка при создании платежа');
+         });
+         });**/
+// В обработчике eventClick добавьте:
+// Обработчик для новой брони
+        document.getElementById('payNewButton')?.addEventListener('click', function () {
+            processNewPayment();
+        });
+
+        // Обработчик для существующей брони
+    // Измените обработчик кнопки в detailModal
+document.getElementById('payExistingButton')?.addEventListener('click', function() {
+    const eventId = this.getAttribute('data-event-id');
+    if (!eventId) return;
+    
+    this.disabled = true;
+    const originalText = this.textContent;
+    this.textContent = 'Перенаправление...';
+    
+    // Используем форму вместо fetch для избежания CORS
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/pay_booking/${eventId}/`;
+    form.style.display = 'none';
+    
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = '{{ csrf_token }}';
+    form.appendChild(csrfInput);
+    
+    document.body.appendChild(form);
+    form.submit();
 });
-        
-        
-        
+
+        // Функция для обработки новой брони
+        function processNewPayment() {
+            const formData = new FormData(document.querySelector('#eventModal form'));
+
+            fetch('/create_yookassa_payment/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.confirmation_url) {
+                        window.location.href = data.confirmation_url;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Ошибка при создании платежа');
+                });
+        }
+
+        // Функция для обработки существующей брони
+        function processExistingPayment(eventId) {
+            fetch(`/pay_booking/${eventId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+            })
+                .then(response => {
+                    if (response.redirected) {
+                        window.location.href = response.url;
+                    } else {
+                        return response.json();
+                    }
+                })
+                .then(data => {
+                    if (data?.error) throw new Error(data.error);
+                })
+                .catch(error => {
+                    alert('Ошибка: ' + error.message);
+                });
+        }
     </script>
 {% endblock %}

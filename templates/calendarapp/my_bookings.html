@@ -3,7 +3,7 @@
 {% block content %}
 <div class="container mt-4">
     <h2>Мои бронирования</h2>
-       <div class="alert alert-info">
+    <div class="alert alert-info">
         Всего бронирований: {{ bookings|length }}
         {% if not bookings %} - Нет данных! Проверьте базу данных. {% endif %}
     </div>
@@ -15,20 +15,20 @@
     
     {% if bookings %}
     <div class="table-responsive">
-        <table class="table table-striped">
+        <table class="table table-striped table-hover">
             <thead>
                 <tr>
                     <th>Название</th>
                     <th>Стол</th>
                     <th>Дата и время</th>
-                    <th>Статус оплаты</th>
+                    <th>Статус</th>
                     <th>Сумма</th>
                     <th>Действия</th>
                 </tr>
             </thead>
             <tbody>
                 {% for booking in bookings %}
-                <tr>
+                <tr class="booking-row" data-booking-id="{{ booking.id }}" style="cursor: pointer;">
                     <td>{{ booking.title }}</td>
                     <td>№{{ booking.table.number }}</td>
                     <td>
@@ -38,17 +38,25 @@
                     <td>
                         {% if booking.is_paid %}
                             <span class="badge bg-success">Оплачено</span>
+                        {% elif booking.is_canceled %}
+                            <span class="badge bg-danger">Отменено</span>
                         {% else %}
                             <span class="badge bg-warning">Ожидает оплаты</span>
                         {% endif %}
                     </td>
                     <td>{{ booking.total_cost }} руб.</td>
                     <td>
-                        {% if not booking.is_paid %}
+                        {% if not booking.is_paid and not booking.is_canceled %}
                             <a href="{% url 'calendarapp:pay_booking' booking.id %}" 
                                class="btn btn-sm btn-success">Оплатить</a>
+                            <button class="btn btn-sm btn-danger cancel-booking" 
+                                    data-booking-id="{{ booking.id }}">
+                                Отменить
+                            </button>
                         {% endif %}
-                        <a href="#" class="btn btn-sm btn-info">Детали</a>
+                        {% if booking.is_canceled %}
+                            <span class="text-muted">Действия недоступны</span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -59,4 +67,156 @@
     <div class="alert alert-info">У вас пока нет бронирований</div>
     {% endif %}
 </div>
+
+<!-- Модальное окно для деталей бронирования -->
+<div class="modal fade" id="bookingDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="bookingDetailTitle"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label"><strong>Описание:</strong></label>
+                    <p id="bookingDetailDescription"></p>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label"><strong>Начало:</strong></label>
+                        <p id="bookingDetailStart"></p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label"><strong>Конец:</strong></label>
+                        <p id="bookingDetailEnd"></p>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label"><strong>Стол:</strong></label>
+                        <p id="bookingDetailTable"></p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label"><strong>Статус:</strong></label>
+                        <p id="bookingDetailStatus"></p>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label"><strong>Сумма:</strong></label>
+                    <p id="bookingDetailAmount"></p>
+                </div>
+                {% if request.user.is_superuser %}
+                <div class="mb-3">
+                    <label class="form-label"><strong>Пользователь:</strong></label>
+                    <p id="bookingDetailUser"></p>
+                </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                {% if request.user.is_superuser %}
+                <button type="button" class="btn btn-primary" id="editBookingBtn">Изменить</button>
+                <button type="button" class="btn btn-danger" id="deleteBookingBtn">Удалить</button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Обработчик клика по строке таблицы
+    $('.booking-row').click(function() {
+        const bookingId = $(this).data('booking-id');
+        loadBookingDetails(bookingId);
+    });
+
+    // Запрещаем всплытие события для кнопок внутри строки
+    $('.cancel-booking, .btn-success').click(function(e) {
+        e.stopPropagation();
+    });
+
+    // Функция загрузки деталей бронирования
+    function loadBookingDetails(bookingId) {
+        $.ajax({
+            url: `/api/booking/${bookingId}/`,
+            type: 'GET',
+            success: function(response) {
+                // Заполняем модальное окно данными
+                $('#bookingDetailTitle').text(response.title);
+                $('#bookingDetailDescription').text(response.description || 'Нет описания');
+                $('#bookingDetailStart').text(response.start_time);
+                $('#bookingDetailEnd').text(response.end_time);
+                $('#bookingDetailTable').text(`Стол №${response.table.number} (${response.table.table_description})`);
+                $('#bookingDetailAmount').text(`${response.total_cost} руб.`);
+                
+                // Статус
+                let statusText = '';
+                if (response.is_paid) {
+                    statusText = '<span class="badge bg-success">Оплачено</span>';
+                } else if (response.is_canceled) {
+                    statusText = '<span class="badge bg-danger">Отменено</span>';
+                } else {
+                    statusText = '<span class="badge bg-warning">Ожидает оплаты</span>';
+                }
+                $('#bookingDetailStatus').html(statusText);
+                
+                // Для админа показываем пользователя
+                {% if request.user.is_superuser %}
+                $('#bookingDetailUser').text(response.user.email);
+                {% endif %}
+                
+                // Показываем модальное окно
+                const modal = new bootstrap.Modal(document.getElementById('bookingDetailModal'));
+                modal.show();
+                
+                // Настройка кнопок для админа
+                {% if request.user.is_superuser %}
+                $('#editBookingBtn').off('click').click(function() {
+                    window.location.href = `/event/edit/${bookingId}/`;
+                });
+                
+                $('#deleteBookingBtn').off('click').click(function() {
+                    if (confirm('Вы уверены, что хотите удалить это бронирование?')) {
+                        window.location.href = `/event/${bookingId}/remove/`;
+                    }
+                });
+                {% endif %}
+            },
+            error: function() {
+                alert('Ошибка при загрузке данных бронирования');
+            }
+        });
+    }
+
+    // Обработчик отмены бронирования
+    $('.cancel-booking').click(function(e) {
+        e.preventDefault();
+        const bookingId = $(this).data('booking-id');
+        
+        if (confirm('Вы уверены, что хотите отменить это бронирование?')) {
+            $.ajax({
+                url: "{% url 'calendarapp:cancel_booking' %}",
+                type: "POST",
+                data: {
+                    booking_id: bookingId,
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        location.reload();
+                    } else {
+                        alert(response.message || 'Ошибка при отмене бронирования');
+                    }
+                },
+                error: function() {
+                    alert('Произошла ошибка при отправке запроса');
+                }
+            });
+        }
+    });
+});
+</script>
 {% endblock %}

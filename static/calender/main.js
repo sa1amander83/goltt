@@ -4119,9 +4119,9 @@ var FullCalendar = (function (exports) {
             list: 'list',
         },
         weekText: 'W',
-        allDayText: 'all-day',
+        allDayText: 'весь день',
         moreLinkText: 'more',
-        noEventsText: 'No events to display',
+        noEventsText: 'Ничего не забронировано',
     };
     function organizeRawLocales(explicitRawLocales) {
         var defaultCode = explicitRawLocales.length > 0 ? explicitRawLocales[0].code : 'en';

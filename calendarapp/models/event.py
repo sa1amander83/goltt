@@ -7,6 +7,10 @@ from django.urls import reverse
 
 from calendarapp.models import EventAbstract
 from accounts.models import User
+from yookassa import Configuration, Payment
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class EventManager(models.Manager):
@@ -77,17 +81,41 @@ class Event(EventAbstract):
     end_time = models.DateTimeField(verbose_name='Время окончания брони')
     total_cost=models.FloatField(default=300)
     objects = EventManager()
+    is_canceled = models.BooleanField('Отменено', default=False)
+    cancel_reason = models.TextField('Причина отмены', blank=True, null=True)
+    payment_status = models.CharField(
+        max_length=20,
+        choices=PAYMENT_STATUS_CHOICES,
+        default='pending'
+    )
+    payment_id = models.CharField('ID платежа', max_length=100, blank=True, null=True)
+
     table = models.ForeignKey(Tables, on_delete=models.CASCADE, related_name="events", null=True, default=1, verbose_name='Стол')
     total_time=models.FloatField(default=0)
     is_paid = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
+
     def __str__(self):
         return self.title
 
     def get_absolute_url(self):
         return reverse("calendarapp:event-detail", args=(self.id,))
 
+    def update_payment_status(self):
+        """Обновляет статус платежа из ЮKassa"""
+        if not self.payment_id:
+            return False
+
+        try:
+            payment = Payment.find_one(self.payment_id)
+            self.payment_status = payment.status
+            self.is_paid = (payment.status == 'succeeded')
+            self.save()
+            return True
+        except Exception as e:
+            logger.error(f"Error updating payment status: {str(e)}")
+            return False
 
 
     @property

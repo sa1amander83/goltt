@@ -49,6 +49,8 @@ urlpatterns = [
     path('create_yookassa_payment/', views.create_yookassa_payment, name='create_yookassa_payment'),
     path('my_bookings/', views.MyBookingsView.as_view(), name='my_bookings'),
     path('pay_booking/<int:booking_id>/', views.pay_booking, name='pay_booking'),
-    path('payment_status/<int:temp_booking_id>/', views.payment_callback, name='payment_status'),
-
+    path('payment_status/<int:booking_id>/', views.payment_callback, name='payment_callback'),
+    path('yookassa-webhook/', views.yookassa_webhook, name='yookassa_webhook'),
+path('cancel-booking/', views.cancel_booking, name='cancel_booking'),
+path('api/booking/<int:booking_id>/', views.booking_details_api, name='booking_details_api'),
 ]
