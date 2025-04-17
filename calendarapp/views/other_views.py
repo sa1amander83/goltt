@@ -728,51 +728,46 @@ def yookassa_webhook(request):
 
 # calendarapp/views.py
 from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+# calendarapp/views.py
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
 
 
 @login_required
+@require_POST
 def cancel_booking(request):
-    if request.method == 'POST':
-        booking_id = request.POST.get('booking_id')
-        try:
-            booking = Event.objects.get(id=booking_id, user=request.user)
+    booking_id = request.POST.get('booking_id')
+    try:
+        booking = Event.objects.get(id=booking_id, user=request.user)
 
-            # Проверяем, можно ли отменить бронь
-            if booking.is_paid:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Нельзя отменить уже оплаченное бронирование'
-                })
-
-            if booking.is_canceled:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Бронирование уже отменено'
-                })
-
-            # Отменяем бронирование
-            booking.is_canceled = True
-            booking.cancel_reason = "Отменено пользователем"
-            booking.save()
-
-            return JsonResponse({'success': True})
-
-        except Event.DoesNotExist:
+        if booking.is_canceled:
             return JsonResponse({
                 'success': False,
-                'message': 'Бронирование не найдено'
-            })
+                'message': 'Это бронирование уже отменено'
+            }, status=400)
 
-    return JsonResponse({
-        'success': False,
-        'message': 'Некорректный метод запроса'
-    })
+        if booking.is_paid:
+            return JsonResponse({
+                'success': False,
+                'message': 'Нельзя отменить оплаченное бронирование'
+            }, status=400)
+
+        booking.is_canceled = True
+        booking.save()
+
+        return JsonResponse({'success': True})
+
+    except Event.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': 'Бронирование не найдено'
+        }, status=404)
 
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
-
-
+from django.core.serializers.json import DjangoJSONEncoder
 @require_GET
 def booking_details_api(request, booking_id):
     try:
@@ -800,7 +795,7 @@ def booking_details_api(request, booking_id):
             }
         }
 
-        return JsonResponse(data)
+        return JsonResponse(data, encoder=DjangoJSONEncoder)
 
     except Event.DoesNotExist:
         return JsonResponse({'error': 'Бронирование не найдено'}, status=404)

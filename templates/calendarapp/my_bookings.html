@@ -124,18 +124,21 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
+{% block extrascripts %}
 <script>
 $(document).ready(function() {
+    // Инициализация модального окна
+    const bookingModal = new bootstrap.Modal('#bookingDetailModal');
+    
     // Обработчик клика по строке таблицы
-    $('.booking-row').click(function() {
+    $('.booking-row').on('click', function(e) {
+        // Игнорируем клики по кнопкам внутри строки
+        if ($(e.target).is('button, a') || $(e.target).closest('button, a').length) {
+            return;
+        }
+        
         const bookingId = $(this).data('booking-id');
         loadBookingDetails(bookingId);
-    });
-
-    // Запрещаем всплытие события для кнопок внутри строки
-    $('.cancel-booking, .btn-success').click(function(e) {
-        e.stopPropagation();
     });
 
     // Функция загрузки деталей бронирования
@@ -144,62 +147,49 @@ $(document).ready(function() {
             url: `/api/booking/${bookingId}/`,
             type: 'GET',
             success: function(response) {
-                // Заполняем модальное окно данными
-                $('#bookingDetailTitle').text(response.title);
+                $('#bookingDetailTitle').text(response.title || 'Без названия');
                 $('#bookingDetailDescription').text(response.description || 'Нет описания');
                 $('#bookingDetailStart').text(response.start_time);
                 $('#bookingDetailEnd').text(response.end_time);
                 $('#bookingDetailTable').text(`Стол №${response.table.number} (${response.table.table_description})`);
                 $('#bookingDetailAmount').text(`${response.total_cost} руб.`);
                 
-                // Статус
-                let statusText = '';
+                // Обновляем статус
+                let statusBadge = '';
                 if (response.is_paid) {
-                    statusText = '<span class="badge bg-success">Оплачено</span>';
+                    statusBadge = '<span class="badge bg-success">Оплачено</span>';
                 } else if (response.is_canceled) {
-                    statusText = '<span class="badge bg-danger">Отменено</span>';
+                    statusBadge = '<span class="badge bg-danger">Отменено</span>';
                 } else {
-                    statusText = '<span class="badge bg-warning">Ожидает оплаты</span>';
+                    statusBadge = '<span class="badge bg-warning">Ожидает оплаты</span>';
                 }
-                $('#bookingDetailStatus').html(statusText);
+                $('#bookingDetailStatus').html(statusBadge);
                 
-                // Для админа показываем пользователя
+                // Для администратора
                 {% if request.user.is_superuser %}
                 $('#bookingDetailUser').text(response.user.email);
+                $('#editBookingBtn').attr('data-booking-id', bookingId);
+                $('#deleteBookingBtn').attr('data-booking-id', bookingId);
                 {% endif %}
                 
-                // Показываем модальное окно
-                const modal = new bootstrap.Modal(document.getElementById('bookingDetailModal'));
-                modal.show();
-                
-                // Настройка кнопок для админа
-                {% if request.user.is_superuser %}
-                $('#editBookingBtn').off('click').click(function() {
-                    window.location.href = `/event/edit/${bookingId}/`;
-                });
-                
-                $('#deleteBookingBtn').off('click').click(function() {
-                    if (confirm('Вы уверены, что хотите удалить это бронирование?')) {
-                        window.location.href = `/event/${bookingId}/remove/`;
-                    }
-                });
-                {% endif %}
+                bookingModal.show();
             },
-            error: function() {
-                alert('Ошибка при загрузке данных бронирования');
+            error: function(xhr) {
+                console.error('Ошибка:', xhr.responseText);
+                alert('Не удалось загрузить данные бронирования');
             }
         });
     }
 
     // Обработчик отмены бронирования
-    $('.cancel-booking').click(function(e) {
-        e.preventDefault();
+    $(document).on('click', '.cancel-booking', function(e) {
+        e.stopPropagation();
         const bookingId = $(this).data('booking-id');
         
         if (confirm('Вы уверены, что хотите отменить это бронирование?')) {
             $.ajax({
                 url: "{% url 'calendarapp:cancel_booking' %}",
-                type: "POST",
+                method: "POST",
                 data: {
                     booking_id: bookingId,
                     csrfmiddlewaretoken: '{{ csrf_token }}'
@@ -211,12 +201,27 @@ $(document).ready(function() {
                         alert(response.message || 'Ошибка при отмене бронирования');
                     }
                 },
-                error: function() {
-                    alert('Произошла ошибка при отправке запроса');
+                error: function(xhr) {
+                    alert('Произошла ошибка: ' + xhr.responseText);
                 }
             });
         }
     });
+
+    // Для администратора - кнопки в модальном окне
+    {% if request.user.is_superuser %}
+    $('#editBookingBtn').click(function() {
+        const bookingId = $(this).data('booking-id');
+        window.location.href = `/event/edit/${bookingId}/`;
+    });
+    
+    $('#deleteBookingBtn').click(function() {
+        const bookingId = $(this).data('booking-id');
+        if (confirm('Вы уверены, что хотите удалить это бронирование?')) {
+            window.location.href = `/event/${bookingId}/remove/`;
+        }
+    });
+    {% endif %}
 });
 </script>
 {% endblock %}
