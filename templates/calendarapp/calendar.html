@@ -590,6 +590,7 @@
         // Save selected time when opening the modal
         document.getElementById('eventModal').addEventListener('shown.bs.modal', function () {
             const isAdmin = {{ is_admin|yesno:"true,false" }};
+           
             fetch('/api/user_events_count/')  // Нужно создать соответствующий API endpoint
                 .then(response => response.json())
                 .then(data => {

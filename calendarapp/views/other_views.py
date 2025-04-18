@@ -75,26 +75,41 @@ def create_event(request):
             event = form.save(commit=False)
             event.user = request.user
 
-            # Для администратора - сохраняем без оплаты только если нажата кнопка "Сохранить"
+            # For admin - save without payment if "Save" button clicked
             if request.user.is_superuser and 'save' in request.POST:
                 event.is_paid = True
                 event.save()
                 messages.success(request, 'Бронь сохранена без оплаты')
                 return redirect('calendarapp:calendar')
 
-            # Для всех остальных случаев (включая админа при нажатии "Оплатить")
+            # Check booking limit for non-admin users
+            if not request.user.is_superuser:
+                paid_bookings_count = Event.objects.filter(
+                    user=request.user,
+                    is_paid=True,
+                    is_canceled=False
+                ).count()
+
+                if paid_bookings_count >= 3:
+                    messages.error(request, "Вы можете иметь не более 3 оплаченных бронирований одновременно.")
+                    return redirect("calendarapp:calendar")
+
+            # For all other cases (including admin when clicking "Pay")
             event.is_paid = False
             event.save()
 
             if request.user.is_superuser:
-                # Для админа при нажатии "Оплатить" - создаем платеж
+                # For admin when clicking "Pay" - create payment
                 return create_yookassa_payment(request, event)
             else:
-                # Для обычных пользователей - всегда создаем платеж
+                # For regular users - always create payment
                 return create_yookassa_payment(request, event)
+        else:
+            messages.error(request, "Пожалуйста, исправьте ошибки в форме")
+    else:
+        form = EventForm()
 
     return render(request, "event.html", {"form": form})
-
 
 @csrf_exempt
 def create_yookassa_payment(request, event=None):
@@ -520,8 +535,14 @@ class UserEventsCountView(generic.View):
         if not request.user.is_authenticated:
             return JsonResponse({'error': 'Not authenticated'}, status=403)
 
+        paid_count = Event.objects.filter(
+            user=request.user,
+            is_paid=True,
+            is_canceled=False
+        ).count()
+
         return JsonResponse({
-            'count': Event.objects.filter(user=request.user).count(),
+            'count': paid_count,
             'is_admin': request.user.is_superuser,
             'max_events': 3 if not request.user.is_superuser else None
         })
@@ -635,19 +656,28 @@ def payment_callback(request, booking_id):
         messages.error(request, 'Ошибка обработки платежа')
 
     return redirect('calendarapp:my_bookings')
+
+
 class MyBookingsView(LoginRequiredMixin, ListView):
     template_name = 'calendarapp/my_bookings.html'
     context_object_name = 'bookings'
     paginate_by = 10
 
     def get_queryset(self):
-        return Event.objects.filter(user=self.request.user).select_related('table').order_by('-start_time')
+        return Event.objects.filter(
+            user=self.request.user,
+            is_canceled=False
+        ).select_related('table').order_by('-start_time')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['now'] = timezone.now()
         context['unpaid_bookings'] = self.get_queryset().filter(is_paid=False)
         context['paid_bookings'] = self.get_queryset().filter(is_paid=True)
+
+        # Add count of paid bookings for the limit check
+        context['paid_bookings_count'] = context['paid_bookings'].count()
+        context['max_bookings'] = 3
         return context
 
 
