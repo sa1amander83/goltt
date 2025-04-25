@@ -53,4 +53,6 @@ urlpatterns = [
     path('yookassa-webhook/', views.yookassa_webhook, name='yookassa_webhook'),
 path('cancel-booking/', views.cancel_booking, name='cancel_booking'),
 path('api/booking/<int:booking_id>/', views.booking_details_api, name='booking_details_api'),
+
+
 ]

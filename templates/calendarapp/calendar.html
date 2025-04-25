@@ -194,6 +194,7 @@
             </div>
         </div>
     </div>
+    
 {% endblock content %}
 
 {% block extrascripts %}
@@ -280,8 +281,13 @@
                         this.hide();
                         return;
                     }
+                    const selectedDate = new Date(arg.start);
+                    const now = new Date();
 
-
+                    if (selectedDate < now) {
+                        showPastEventsModal(selectedDate);  // функция для просмотра прошедших событий
+                        return;
+                    }
                     eventModal.show();
 
                     document.getElementById('id_start_time').value = formatDateForDjango(arg.start);
@@ -590,7 +596,7 @@
         // Save selected time when opening the modal
         document.getElementById('eventModal').addEventListener('shown.bs.modal', function () {
             const isAdmin = {{ is_admin|yesno:"true,false" }};
-           
+
             fetch('/api/user_events_count/')  // Нужно создать соответствующий API endpoint
                 .then(response => response.json())
                 .then(data => {
@@ -718,118 +724,37 @@
         });
 
 
-        /***   document.getElementById('payButton').addEventListener('click', function () {
-         const isAdmin = {{ request.user.is_superuser|yesno:"true,false" }};
-         const title = document.getElementById('id_title').value;
-         const description = document.getElementById('id_description').value;
-         const startTime = document.getElementById('id_start_time').value;
-         const endTime = document.getElementById('id_end_time').value;
-         const tableId = document.getElementById('id_table').value;
-         const totalCost = document.getElementById('total-cost').value;
-
-         if (!title || !startTime || !endTime || !tableId || !totalCost) {
-         alert('Пожалуйста, заполните все поля перед оплатой');
-         return;
-         }
-
-         // Для администратора - просто сохраняем
-         if (isAdmin) {
-         document.querySelector('#eventModal form').submit();
-         return;
-         }
-
-         // Для обычного пользователя - создаем платеж
-         fetch('/create_yookassa_payment/', {
-         method: 'POST',
-         headers: {
-         'Content-Type': 'application/json',
-         'X-CSRFToken': '{{ csrf_token }}'
-         },
-         body: JSON.stringify({
-         amount: totalCost,
-         booking_data: {
-         title: title,
-         description: description,
-         start_time: startTime,
-         end_time: endTime,
-         table: tableId,
-         user_id: {{ request.user.id|default:"null" }}
-         }
-         })
-         })
-         .then(response => response.json())
-         .then(data => {
-         if (data.confirmation_url) {
-         // Открываем платеж в новом окне
-         const paymentWindow = window.open(data.confirmation_url, '_blank');
-
-         // Проверяем статус платежа каждые 5 секунд
-         const checkPaymentStatus = setInterval(() => {
-         fetch(`/check_payment_status/${data.payment_id}/`)
-         .then(res => res.json())
-         .then(status => {
-         if (status === 'succeeded') {
-         clearInterval(checkPaymentStatus);
-         alert('Оплата прошла успешно! Бронь сохранена.');
-         // Закрываем модальное окно
-         bootstrap.Modal.getInstance(document.getElementById('eventModal')).hide();
-         // Обновляем календарь
-         calendar.refetchEvents();
-         } else if (status === 'canceled') {
-         clearInterval(checkPaymentStatus);
-         alert('Оплата отменена');
-         }
-         });
-         }, 5000);
-
-         // Следим за закрытием окна оплаты
-         const checkWindowClosed = setInterval(() => {
-         if (paymentWindow.closed) {
-         clearInterval(checkWindowClosed);
-         clearInterval(checkPaymentStatus);
-         }
-         }, 1000);
-
-         } else {
-         alert('Ошибка при создании платежа: ' + (data.error || 'Неизвестная ошибка'));
-         }
-         })
-         .catch(error => {
-         console.error('Error:', error);
-         alert('Произошла ошибка при создании платежа');
-         });
-         });**/
-// В обработчике eventClick добавьте:
+     
 // Обработчик для новой брони
         document.getElementById('payNewButton')?.addEventListener('click', function () {
             processNewPayment();
         });
 
         // Обработчик для существующей брони
-    // Измените обработчик кнопки в detailModal
-document.getElementById('payExistingButton')?.addEventListener('click', function() {
-    const eventId = this.getAttribute('data-event-id');
-    if (!eventId) return;
-    
-    this.disabled = true;
-    const originalText = this.textContent;
-    this.textContent = 'Перенаправление...';
-    
-    // Используем форму вместо fetch для избежания CORS
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = `/pay_booking/${eventId}/`;
-    form.style.display = 'none';
-    
-    const csrfInput = document.createElement('input');
-    csrfInput.type = 'hidden';
-    csrfInput.name = 'csrfmiddlewaretoken';
-    csrfInput.value = '{{ csrf_token }}';
-    form.appendChild(csrfInput);
-    
-    document.body.appendChild(form);
-    form.submit();
-});
+        // Измените обработчик кнопки в detailModal
+        document.getElementById('payExistingButton')?.addEventListener('click', function () {
+            const eventId = this.getAttribute('data-event-id');
+            if (!eventId) return;
+
+            this.disabled = true;
+            const originalText = this.textContent;
+            this.textContent = 'Перенаправление...';
+
+            // Используем форму вместо fetch для избежания CORS
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/pay_booking/${eventId}/`;
+            form.style.display = 'none';
+
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = '{{ csrf_token }}';
+            form.appendChild(csrfInput);
+
+            document.body.appendChild(form);
+            form.submit();
+        });
 
         // Функция для обработки новой брони
         function processNewPayment() {
@@ -877,5 +802,9 @@ document.getElementById('payExistingButton')?.addEventListener('click', function
                     alert('Ошибка: ' + error.message);
                 });
         }
+
+        
+        
+
     </script>
 {% endblock %}

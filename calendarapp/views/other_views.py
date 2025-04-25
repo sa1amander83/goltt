@@ -829,3 +829,4 @@ def booking_details_api(request, booking_id):
 
     except Event.DoesNotExist:
         return JsonResponse({'error': 'Бронирование не найдено'}, status=404)
+

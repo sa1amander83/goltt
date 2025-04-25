@@ -19,7 +19,8 @@ MyBookingsView,
 pay_booking,
 yookassa_webhook,
 cancel_booking,
-booking_details_api
+booking_details_api,
+
 )
 
 __all__ = [
@@ -38,7 +39,13 @@ __all__ = [
     next_week,
     next_day,
     change_event,
+pay_booking,
+yookassa_webhook,
+cancel_booking,
+booking_details_api,
 
 ]
 
 
+def past_events(request):
+    return None
