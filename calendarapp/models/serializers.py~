@@ -13,7 +13,7 @@ class TablesSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = get_user_model()
-        fields = '__all__'
+        fields = ['id', 'email', 'first_name', 'last_name']
 
 
 class EventMemberSerializer(serializers.ModelSerializer):

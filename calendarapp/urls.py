@@ -1,6 +1,8 @@
 from django.urls import path
 
 from . import views
+from .views.book_serializers_view import PaymentCreateAPIView, BookingDetailAPIView, BookingCancelAPIView, \
+    MyBookingsAPIView, PaymentCallbackAPIView, UserStatsAPIView
 from .views.event_list import AdminStatsView
 
 app_name = "calendarapp"
@@ -61,7 +63,8 @@ app_name = "calendarapp"
 from django.urls import path
 from calendarapp.views.serializers_view import (
     CalendarView, EventCreateAPIView, EventDetailAPIView,
-    EventMemberCreateAPIView, EventUpdateAPIView, EventDeleteAPIView, AvailableTablesAPIView
+    EventMemberCreateAPIView, EventUpdateAPIView, EventDeleteAPIView, AvailableTablesAPIView, EventListAPIView,
+    RunningEventsAPIView, UpcomingEventsAPIView, CompletedEventsAPIView, UserBookingStatsAPIView
 )
 
 urlpatterns = [
@@ -72,4 +75,23 @@ urlpatterns = [
     path('event/<int:event_id>/update/', EventUpdateAPIView.as_view(), name='event-update'),
     path('event/<int:event_id>/delete/', EventDeleteAPIView.as_view(), name='event-delete'),
     path('tables/available/', AvailableTablesAPIView.as_view(), name='available-tables'),
+
+    path('payments/create/', PaymentCreateAPIView.as_view(), name='payment-create'),
+    path('bookings/<int:booking_id>/payment-callback/',
+         PaymentCallbackAPIView.as_view(), name='payment-callback'),
+    path('bookings/<int:booking_id>/',
+         BookingDetailAPIView.as_view(), name='booking-detail'),
+    path('bookings/<int:booking_id>/cancel/',
+         BookingCancelAPIView.as_view(), name='booking-cancel'),
+    path('my_bookings/', MyBookingsAPIView.as_view(), name='my_bookings'),
+    path('user-stats/', UserStatsAPIView.as_view(), name='user-stats'),
+    path("stats/", AdminStatsView.as_view(), name="admin_stats"),
+
+    path('events/', EventListAPIView.as_view(), name='all_events'),
+    path('events/running/', RunningEventsAPIView.as_view(), name='running_events'),
+    path('events/upcoming/', UpcomingEventsAPIView.as_view(), name='upcoming_events'),
+    path('events/completed/', CompletedEventsAPIView.as_view(), name='completed_events'),
+    path('user_stats/', UserBookingStatsAPIView.as_view(), name='user_stats'),
+
+
 ]

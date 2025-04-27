@@ -1,13 +1,19 @@
+from decimal import Decimal
+
+from django.db.models import Sum
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_datetime
+from django.utils.timezone import now
 from rest_framework import serializers
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from calendarapp.models import Event
+from calendarapp.models import Event, EventMember
 from calendarapp.models.event import Tables
 from calendarapp.utils import Calendar
 from calendarapp.views.other_views import get_date
-from calendarapp.models.serializers import  TablesSerializer
+from calendarapp.models.serializers import TablesSerializer, AdminStatsSerializer, EventListSerializer
+
 
 class EventSerializer(serializers.ModelSerializer):
     class Meta:
@@ -67,3 +73,177 @@ class AvailableTablesAPIView(APIView):
         available_tables = Tables.objects.exclude(id__in=booked_tables)
         serializer = TablesSerializer(available_tables, many=True)
         return Response({"tables": serializer.data})
+
+
+class EventMemberCreateAPIView(APIView):
+    def post(self, request, event_id, *args, **kwargs):
+        event = get_object_or_404(Event, id=event_id)
+        user = request.data.get('user')
+        # Логика добавления пользователя в EventMember
+        event_member = EventMember.objects.create(event=event, user=user)
+        return Response({"message": "Member added successfully"}, status=201)
+
+
+class AdminStatsAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def get(self, request):
+        today = now().date()
+        current_month = int(request.GET.get('month', today.month))
+        current_year = int(request.GET.get('year', today.year))
+
+        # Get available months and years
+        months = list(range(1, 13))
+        years = list(range(today.year - 1, today.year + 1))
+
+        tables = Tables.objects.all()
+        table_stats = []
+
+        total_daily_income = Decimal(0)
+        total_monthly_income = Decimal(0)
+        total_past_month_income = Decimal(0)
+
+        for table in tables:
+            # Daily stats
+            daily_bookings = Event.objects.filter(
+                table=table,
+                start_time__date=today
+            )
+            daily_income = daily_bookings.aggregate(
+                total=Sum('total_cost')
+            )['total'] or Decimal(0)
+            daily_booking_count = daily_bookings.count()
+
+            # Monthly stats
+            monthly_bookings = Event.objects.filter(
+                table=table,
+                start_time__month=current_month,
+                start_time__year=current_year
+            )
+            monthly_income = monthly_bookings.aggregate(
+                total=Sum('total_cost')
+            )['total'] or Decimal(0)
+            monthly_booking_count = monthly_bookings.count()
+
+            # Past month stats (completed events only)
+            past_month = current_month - 1 if current_month > 1 else 12
+            past_year = current_year if current_month > 1 else current_year - 1
+
+            past_month_bookings = Event.objects.filter(
+                table=table,
+                start_time__month=past_month,
+                start_time__year=past_year,
+                end_time__lt=now()
+            )
+            past_month_income = past_month_bookings.aggregate(
+                total=Sum('total_cost')
+            )['total'] or Decimal(0)
+
+            # Update totals
+            total_daily_income += daily_income
+            total_monthly_income += monthly_income
+            total_past_month_income += past_month_income
+
+            table_stats.append({
+                "table_number": table.id,
+                "daily_income": daily_income,
+                "monthly_income": monthly_income,
+                "past_month_income": past_month_income,
+                "total_bookings_today": daily_booking_count,
+                "total_bookings_month": monthly_booking_count,
+            })
+
+        # Prepare response data
+        data = {
+            "table_stats": table_stats,
+            "total_daily_income": total_daily_income,
+            "total_monthly_income": total_monthly_income,
+            "total_past_month_income": total_past_month_income,
+            "months": months,
+            "years": years,
+            "current_month": current_month,
+            "current_year": current_year,
+        }
+
+        serializer = AdminStatsSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+
+        return Response(serializer.data)
+
+
+class EventListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Event.objects.filter(
+            user=self.request.user,
+            is_active=True,
+            is_deleted=False
+        ).select_related('table', 'user')
+
+    def get(self, request):
+        serializer = EventListSerializer(self.get_queryset(), many=True)
+        return Response({
+            'events': serializer.data,
+            'status_choices': dict(Event.PAYMENT_STATUS_CHOICES)
+        })
+
+
+class RunningEventsAPIView(EventListAPIView):
+    def get_queryset(self):
+        return Event.objects.get_running_events(user=self.request.user)
+
+    def get(self, request):
+        serializer = EventListSerializer(self.get_queryset(), many=True)
+        return Response({
+            'events': serializer.data,
+            'status_choices': dict(Event.PAYMENT_STATUS_CHOICES),
+            'current_status': 'running'
+        })
+
+
+class UpcomingEventsAPIView(EventListAPIView):
+    def get_queryset(self):
+        return Event.objects.get_upcoming_events(user=self.request.user)
+
+    def get(self, request):
+        serializer = EventListSerializer(self.get_queryset(), many=True)
+        return Response({
+            'events': serializer.data,
+            'status_choices': dict(Event.PAYMENT_STATUS_CHOICES),
+            'current_status': 'upcoming'
+        })
+
+
+class CompletedEventsAPIView(EventListAPIView):
+    def get_queryset(self):
+        return Event.objects.get_completed_events(user=self.request.user)
+
+    def get(self, request):
+        serializer = EventListSerializer(self.get_queryset(), many=True)
+        return Response({
+            'events': serializer.data,
+            'status_choices': dict(Event.PAYMENT_STATUS_CHOICES),
+            'current_status': 'completed'
+        })
+
+
+class UserBookingStatsSerializer(serializers.ModelSerializer):
+    table = TablesSerializer()
+    payment_status_display = serializers.CharField(source='get_payment_status_display')
+
+    class Meta:
+        model = Event
+        fields = [
+            'id', 'title', 'start_time', 'end_time', 'table',
+            'total_cost', 'payment_status', 'payment_status_display',
+            'is_paid', 'is_canceled', 'created_at'
+        ]
+
+
+class UserStatsSerializer(serializers.Serializer):
+    total_bookings = serializers.IntegerField()
+    total_spent = serializers.DecimalField(max_digits=10, decimal_places=2)
+    upcoming_bookings = UserBookingStatsSerializer(many=True)
+    past_bookings = UserBookingStatsSerializer(many=True)
+    favorite_table = TablesSerializer(allow_null=True)
