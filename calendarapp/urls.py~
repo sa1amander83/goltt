@@ -65,7 +65,7 @@ from calendarapp.views.serializers_view import (
 )
 
 urlpatterns = [
-    path('calendar/', CalendarView.as_view(), name='calendar'),
+    path('calendar/', CalendarView.as_view(), name='calendar-view'),
     path('event/create/', EventCreateAPIView.as_view(), name='event-create'),
     path('event/<int:event_id>/', EventDetailAPIView.as_view(), name='event-detail'),
     path('event/<int:event_id>/add_member/', EventMemberCreateAPIView.as_view(), name='event-add-member'),

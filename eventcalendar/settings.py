@@ -43,7 +43,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "calendarapp.apps.CalendarappConfig",
     "accounts.apps.AccountsConfig",
-
+    'rest_framework',
 
 ]
 
@@ -100,7 +100,7 @@ DATABASES = {
         'USER': 'postgres',
         'PASSWORD': '123',
         'HOST': '127.0.0.1',
-        'PORT': '5432',
+        'PORT': '5434',
 
     }
 }
@@ -151,8 +151,10 @@ STATICFILES_DIRS = (os.path.join(BASE_DIR, "static"),)
 #
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media/') # 'data' is my media folder
 MEDIA_URL = '/media/'
+from dotenv import load_dotenv
+import os
 
-from decouple import config
+load_dotenv()
 
-SHOP_SECRET_KEY = config('SHOP_SECRET_KEY')
-ACCOUNT_ID = config('ACCOUNT_ID')
+SHOP_SECRET_KEY = os.getenv('SHOP_SECRET_KEY')
+ACCOUNT_ID = os.getenv('ACCOUNT_ID')

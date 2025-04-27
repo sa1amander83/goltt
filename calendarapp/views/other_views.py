@@ -1,16 +1,5 @@
-# cal/views.py
-
-import json
-import os
-
 from django.conf import settings
-from django.contrib import messages
-from django.db.models import Sum, DurationField, F, Avg
-from django.db.models.functions import Cast
 from django.utils import timezone
-from django.utils.dateparse import parse_datetime, parse_date
-from django.shortcuts import render, redirect
-from django.http import HttpResponseRedirect
 from django.utils.timezone import now
 from django.views import generic
 from django.utils.safestring import mark_safe
@@ -18,17 +7,21 @@ from datetime import timedelta, datetime, date, time
 import calendar
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.urls import reverse_lazy, reverse
-from django.http import JsonResponse
+from django.urls import reverse_lazy
 from django.shortcuts import get_object_or_404
 from django.views.generic import ListView
-
 from calendarapp.models import EventMember, Event
-from calendarapp.models.event import Tables, TempBooking
+from calendarapp.models.event import Tables
 from calendarapp.utils import Calendar
 from calendarapp.forms import EventForm, AddMemberForm
+from yookassa import Configuration
 
-from django.views.decorators.csrf import csrf_exempt
+Configuration.account_id = settings.ACCOUNT_ID
+Configuration.secret_key = settings.SHOP_SECRET_KEY
+
+from calendarapp.views.bookings_views import create_yookassa_payment
+
+
 def get_date(req_day):
     if req_day:
         year, month = (int(x) for x in req_day.split("-"))
@@ -38,16 +31,16 @@ def get_date(req_day):
 
 def prev_month(d):
     first = d.replace(day=1)
-    prev_month = first - timedelta(days=1)
-    month = "month=" + str(prev_month.year) + "-" + str(prev_month.month)
+    prev_month_value = first - timedelta(days=1)
+    month = "month=" + str(prev_month_value.year) + "-" + str(prev_month_value.month)
     return month
 
 
 def next_month(d):
     days_in_month = calendar.monthrange(d.year, d.month)[1]
     last = d.replace(day=days_in_month)
-    next_month = last + timedelta(days=1)
-    month = "month=" + str(next_month.year) + "-" + str(next_month.month)
+    next_month_value = last + timedelta(days=1)
+    month = "month=" + str(next_month_value.year) + "-" + str(next_month_value.month)
     return month
 
 
@@ -111,54 +104,6 @@ def create_event(request):
 
     return render(request, "event.html", {"form": form})
 
-@csrf_exempt
-def create_yookassa_payment(request, event=None):
-    if request.method == 'POST':
-        try:
-            if event is None:
-                # Создаем новое событие
-                form = EventForm(request.POST)
-                if not form.is_valid():
-                    return JsonResponse({'error': 'Invalid form data'}, status=400)
-                event = form.save(commit=False)
-                event.user = request.user
-                event.is_paid = False
-                event.save()
-            else:
-                # Используем существующее событие
-                event.is_paid = False
-                event.save()
-
-            return_url = request.build_absolute_uri(
-                reverse('calendarapp:payment_status', args=[event.id])
-            )
-
-            payment = Payment.create({
-                "amount": {
-                    "value": str(event.total_cost),
-                    "currency": "RUB"
-                },
-                "confirmation": {
-                    "type": "redirect",
-                    "return_url": return_url
-                },
-                "description": f"Бронирование стола: {event.title}",
-                "metadata": {
-                    "event_id": str(event.id)
-                }
-            }, str(uuid.uuid4()))
-
-            return JsonResponse({
-                'payment_id': payment.id,
-                'confirmation_url': payment.confirmation.confirmation_url
-            })
-
-        except Exception as e:
-            logger.error(f"Payment error: {str(e)}")
-            return JsonResponse({'error': str(e)}, status=400)
-
-    return JsonResponse({'error': 'Invalid request method'}, status=405)
-
 
 class EventEdit(generic.UpdateView):
     model = Event
@@ -218,8 +163,6 @@ TABLE_COLORS = {
 }
 
 logger = logging.getLogger(__name__)
-from django.contrib.auth.decorators import login_required
-from django.utils.decorators import method_decorator
 
 
 class CalendarViewNew(generic.View):
@@ -553,280 +496,3 @@ class UserStatsView(generic.ListView):
 
     def get_queryset(self):
         return EventMember.objects.select_related('user', 'event').order_by('-event__start_time')
-
-
-import uuid
-import yookassa
-from yookassa import Configuration, Payment
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-
-# Настройте ЮКассу (лучше вынести в settings.py)
-Configuration.account_id = settings.ACCOUNT_ID
-Configuration.secret_key = settings.SHOP_SECRET_KEY
-
-
-@csrf_exempt
-def check_payment_status(request, payment_id):
-    if request.method == 'GET':
-        payment = Payment.find_one(payment_id)
-        return JsonResponse({'status': payment.status})
-    return JsonResponse({'error': 'Invalid request'}, status=400)
-
-
-# @csrf_exempt
-# def create_yookassa_payment(request):
-#     if request.method == 'POST':
-#         try:
-#             data = json.loads(request.body)
-#             amount = float(data['amount'])
-#             booking_data = data['booking_data']
-#
-#             # Сохраняем временную бронь
-#             temp_booking = TempBooking.objects.create(
-#                 title=booking_data['title'],
-#                 description=booking_data.get('description', ''),
-#                 start_time=booking_data['start_time'],
-#                 end_time=booking_data['end_time'],
-#                 table_id=booking_data['table'],
-#                 user_id=booking_data.get('user_id'),
-#                 amount=amount,
-#                 status='pending'
-#             )
-#
-#             # Создаем платеж в ЮKassa
-#             return_url = f"http://127.0.0.1:8000/payment_status/{temp_booking.id}/"
-#             idempotence_key = str(uuid.uuid4())
-#             payment = Payment.create({
-#                 "amount": {
-#                     "value": str(amount),
-#                     "currency": "RUB"
-#                 },
-#                 "confirmation": {
-#                     "type": "redirect",
-#                     "return_url": return_url
-#                 },
-#                 "capture": True,
-#                 "description": f"Бронирование стола: {booking_data['title']}",
-#                 "metadata": {
-#                     "temp_booking_id": str(temp_booking.id)
-#                 }
-#             }, idempotence_key)
-#
-#             # Сохраняем ID платежа
-#             temp_booking.payment_id = payment.id
-#             temp_booking.save()
-#
-#             return JsonResponse({
-#                 'payment_id': payment.id,
-#                 'confirmation_url': payment.confirmation.confirmation_url
-#             })
-#
-#         except Exception as e:
-#             return JsonResponse({'error': str(e)}, status=400)
-#
-#     return JsonResponse({'error': 'Invalid request'}, status=400)
-
-
-# views.py
-
-# views.py
-@csrf_exempt
-def payment_callback(request, booking_id):
-    booking = get_object_or_404(Event, id=booking_id)
-
-    try:
-        if not booking.payment_id:
-            raise ValueError("Payment ID not found")
-
-        payment = Payment.find_one(booking.payment_id)
-
-        if payment.status == 'succeeded':
-            booking.is_paid = True
-            booking.payment_status = 'succeeded'
-            booking.save()
-            messages.success(request, 'Бронирование успешно оплачено!')
-        else:
-            booking.payment_status = payment.status
-            booking.save()
-            messages.warning(request, f'Платеж имеет статус: {payment.status}')
-
-    except Exception as e:
-        logger.error(f"Payment callback error: {str(e)}")
-        messages.error(request, 'Ошибка обработки платежа')
-
-    return redirect('calendarapp:my_bookings')
-
-
-class MyBookingsView(LoginRequiredMixin, ListView):
-    template_name = 'calendarapp/my_bookings.html'
-    context_object_name = 'bookings'
-    paginate_by = 10
-
-    def get_queryset(self):
-        return Event.objects.filter(
-            user=self.request.user,
-            is_canceled=False
-        ).select_related('table').order_by('-start_time')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['now'] = timezone.now()
-        context['unpaid_bookings'] = self.get_queryset().filter(is_paid=False)
-        context['paid_bookings'] = self.get_queryset().filter(is_paid=True)
-
-        # Add count of paid bookings for the limit check
-        context['paid_bookings_count'] = context['paid_bookings'].count()
-        context['max_bookings'] = 3
-        return context
-
-
-@csrf_exempt
-def pay_booking(request, booking_id):
-    booking = get_object_or_404(Event, id=booking_id, user=request.user)
-
-    if booking.is_paid:
-        messages.warning(request, 'Это бронирование уже оплачено')
-        return redirect('calendarapp:my_bookings')
-
-    return_url = request.build_absolute_uri(
-        reverse('calendarapp:payment_callback', args=[booking.id])
-    )
-
-    try:
-        payment = Payment.create({
-            "amount": {
-                "value": str(booking.total_cost),
-                "currency": "RUB"
-            },
-            "confirmation": {
-                "type": "redirect",
-                "return_url": return_url
-            },
-            "capture": True,
-            "description": f"Оплата брони стола: {booking.title}",
-            "metadata": {
-                "booking_id": str(booking.id)
-            }
-        }, str(uuid.uuid4()))
-
-        booking.payment_id = payment.id
-        booking.save()
-
-        return redirect(payment.confirmation.confirmation_url)
-
-    except Exception as e:
-        logger.error(f"Payment error: {str(e)}")
-        messages.error(request, 'Ошибка при создании платежа')
-        return redirect('calendarapp:my_bookings')
-
-
-# calendarapp/views.py
-from django.views.decorators.csrf import csrf_exempt
-from django.http import HttpResponse
-
-
-@csrf_exempt
-def yookassa_webhook(request):
-    """Обработчик webhook уведомлений от ЮKassa"""
-    if request.method == 'POST':
-        try:
-            event_json = json.loads(request.body)
-            payment_id = event_json.get('object', {}).get('id')
-
-            if payment_id:
-                # Находим соответствующее событие
-                event = Event.objects.filter(payment_id=payment_id).first()
-                if event:
-                    payment = Payment.find_one(payment_id)
-                    event.payment_status = payment.status
-                    event.is_paid = (payment.status == 'succeeded')
-                    event.save()
-
-                    if payment.status == 'succeeded':
-                        logger.info(f"Payment succeeded for event {event.id}")
-                    else:
-                        logger.info(f"Payment status changed to {payment.status} for event {event.id}")
-
-            return HttpResponse(status=200)
-        except Exception as e:
-            logger.error(f"Webhook error: {str(e)}")
-            return HttpResponse(status=400)
-
-    return HttpResponse(status=405)
-
-
-# calendarapp/views.py
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST
-# calendarapp/views.py
-from django.views.decorators.http import require_POST
-from django.contrib.auth.decorators import login_required
-
-
-@login_required
-@require_POST
-def cancel_booking(request):
-    booking_id = request.POST.get('booking_id')
-    try:
-        booking = Event.objects.get(id=booking_id, user=request.user)
-
-        if booking.is_canceled:
-            return JsonResponse({
-                'success': False,
-                'message': 'Это бронирование уже отменено'
-            }, status=400)
-
-        if booking.is_paid:
-            return JsonResponse({
-                'success': False,
-                'message': 'Нельзя отменить оплаченное бронирование'
-            }, status=400)
-
-        booking.is_canceled = True
-        booking.save()
-
-        return JsonResponse({'success': True})
-
-    except Event.DoesNotExist:
-        return JsonResponse({
-            'success': False,
-            'message': 'Бронирование не найдено'
-        }, status=404)
-
-
-from django.http import JsonResponse
-from django.views.decorators.http import require_GET
-from django.core.serializers.json import DjangoJSONEncoder
-@require_GET
-def booking_details_api(request, booking_id):
-    try:
-        booking = Event.objects.select_related('table', 'user').get(id=booking_id)
-
-        # Проверка прав доступа
-        if not request.user.is_superuser and booking.user != request.user:
-            return JsonResponse({'error': 'Доступ запрещен'}, status=403)
-
-        data = {
-            'id': booking.id,
-            'title': booking.title,
-            'description': booking.description,
-            'start_time': booking.start_time.strftime("%d.%m.%Y %H:%M"),
-            'end_time': booking.end_time.strftime("%H:%M"),
-            'table': {
-                'number': booking.table.number,
-                'table_description': booking.table.table_description,
-            },
-            'total_cost': booking.total_cost,
-            'is_paid': booking.is_paid,
-            'is_canceled': booking.is_canceled,
-            'user': {
-                'email': booking.user.email,
-            }
-        }
-
-        return JsonResponse(data, encoder=DjangoJSONEncoder)
-
-    except Event.DoesNotExist:
-        return JsonResponse({'error': 'Бронирование не найдено'}, status=404)
-

@@ -1,4 +1,7 @@
 from .event_list import AllEventsListView, CompletedEventsListView, RunningEventsListView, UpcomingEventsListView
+from .bookings_views import (
+    MyBookingsView, pay_booking, yookassa_webhook, cancel_booking, booking_details_api, payment_callback)
+
 from .other_views import (
     CalendarViewNew,
     CalendarView,
@@ -14,12 +17,6 @@ from .other_views import (
     UserEventsCountView,
     UserStatsView,
     create_yookassa_payment,
-payment_callback,
-MyBookingsView,
-pay_booking,
-yookassa_webhook,
-cancel_booking,
-booking_details_api,
 
 )
 
@@ -39,13 +36,10 @@ __all__ = [
     next_week,
     next_day,
     change_event,
-pay_booking,
-yookassa_webhook,
-cancel_booking,
-booking_details_api,
+    pay_booking,
+    yookassa_webhook,
+    cancel_booking,
+    booking_details_api,
 
 ]
 
-
-def past_events(request):
-    return None

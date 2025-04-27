@@ -137,23 +137,3 @@ class UserEventStats(EventAbstract):
         return str(self.user)
 
 
-class TempBooking(models.Model):
-    STATUS_CHOICES = [
-        ('pending', 'Ожидает оплаты'),
-        ('succeeded', 'Оплачено'),
-        ('canceled', 'Отменено'),
-    ]
-
-    title = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-    start_time = models.DateTimeField()
-    end_time = models.DateTimeField()
-    table = models.ForeignKey(Tables, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    payment_id = models.CharField(max_length=50, blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-created_at']

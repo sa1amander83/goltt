@@ -1,0 +1,69 @@
+from django.shortcuts import get_object_or_404
+from django.utils.dateparse import parse_datetime
+from rest_framework import serializers
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from calendarapp.models import Event
+from calendarapp.models.event import Tables
+from calendarapp.utils import Calendar
+from calendarapp.views.other_views import get_date
+from calendarapp.models.serializers import  TablesSerializer
+
+class EventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Event
+        fields = ['id', 'title', 'start_time', 'end_time', 'description', 'table']
+
+class CalendarView(APIView):
+    def get(self, request, *args, **kwargs):
+        d = get_date(self.request.GET.get("month", None))
+        cal = Calendar(d.year, d.month)
+        events = Event.objects.filter(start_time__month=d.month, start_time__year=d.year)
+
+        serializer = EventSerializer(events, many=True)
+        return Response({"calendar": cal.formatmonth(withyear=True), "events": serializer.data})
+
+class EventCreateAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        serializer = EventSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+
+
+class EventDetailAPIView(APIView):
+    def get(self, request, event_id, *args, **kwargs):
+        event = get_object_or_404(Event, id=event_id)
+        serializer = EventSerializer(event)
+        return Response(serializer.data)
+
+
+class EventUpdateAPIView(APIView):
+    def post(self, request, event_id, *args, **kwargs):
+        event = get_object_or_404(Event, id=event_id)
+        serializer = EventSerializer(event, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+class EventDeleteAPIView(APIView):
+    def post(self, request, event_id, *args, **kwargs):
+        event = get_object_or_404(Event, id=event_id)
+        event.delete()
+        return Response({"message": "Event deleted successfully"})
+
+
+class AvailableTablesAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        start_time = parse_datetime(request.GET.get('start_time'))
+        end_time = parse_datetime(request.GET.get('end_time'))
+
+        booked_tables = Event.objects.filter(
+            start_time__lt=end_time,
+            end_time__gt=start_time
+        ).exclude(table=None).values_list('table_id', flat=True)
+
+        available_tables = Tables.objects.exclude(id__in=booked_tables)
+        serializer = TablesSerializer(available_tables, many=True)
+        return Response({"tables": serializer.data})
