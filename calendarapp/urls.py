@@ -64,7 +64,8 @@ from django.urls import path
 from calendarapp.views.serializers_view import (
     CalendarView, EventCreateAPIView, EventDetailAPIView,
     EventMemberCreateAPIView, EventUpdateAPIView, EventDeleteAPIView, AvailableTablesAPIView, EventListAPIView,
-    RunningEventsAPIView, UpcomingEventsAPIView, CompletedEventsAPIView, UserBookingStatsAPIView
+    RunningEventsAPIView, UpcomingEventsAPIView, CompletedEventsAPIView,    UserBookingStatsAPIView, UserBookingsListAPIView
+
 )
 
 urlpatterns = [
@@ -92,6 +93,7 @@ urlpatterns = [
     path('events/upcoming/', UpcomingEventsAPIView.as_view(), name='upcoming_events'),
     path('events/completed/', CompletedEventsAPIView.as_view(), name='completed_events'),
     path('user_stats/', UserBookingStatsAPIView.as_view(), name='user_stats'),
+    path('my-bookings/', UserBookingsListAPIView.as_view(), name='user-bookings-list'),
 
 
 ]

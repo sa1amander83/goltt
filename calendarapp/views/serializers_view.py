@@ -1,20 +1,21 @@
 from decimal import Decimal
-
-from django.db.models import Sum, Count
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.timezone import now
 from rest_framework import serializers
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from rest_framework.response import Response
-from rest_framework.views import APIView
 from calendarapp.models import Event, EventMember
 from calendarapp.models.event import Tables
 from calendarapp.utils import Calendar
 from calendarapp.views.other_views import get_date
 from calendarapp.models.serializers import TablesSerializer, AdminStatsSerializer, EventListSerializer, \
-    UserStatsSerializer
+    UserStatsSerializer, CustomPagination, UserBookingStatsSerializer
+from django.db.models import Count, Sum, Q
+from django.db.models.functions import TruncMonth
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from django.utils import timezone
+from datetime import datetime
 
 
 class EventSerializer(serializers.ModelSerializer):
@@ -230,56 +231,105 @@ class CompletedEventsAPIView(EventListAPIView):
         })
 
 
-
-
-
 class UserBookingStatsAPIView(APIView):
     permission_classes = [IsAuthenticated]
+    pagination_class = CustomPagination
 
     def get(self, request):
         user = request.user
         now = timezone.now()
 
-        # Основная статистика
-        stats = Event.objects.filter(user=user).aggregate(
+        # Параметры фильтрации
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        # Базовый QuerySet
+        bookings = Event.objects.filter(user=user, is_canceled=False)
+
+        # Применяем фильтры по дате
+        if start_date:
+            try:
+                start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+                bookings = bookings.filter(start_time__date__gte=start_date)
+            except ValueError:
+                pass
+
+        if end_date:
+            try:
+                end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+                bookings = bookings.filter(start_time__date__lte=end_date)
+            except ValueError:
+                pass
+
+        # Основная статистика (один запрос)
+        stats = bookings.aggregate(
             total_bookings=Count('id'),
-            total_spent=Sum('total_cost')
+            total_spent=Sum('total_cost'),
+            upcoming_bookings_count=Count(
+                'id',
+                filter=Q(start_time__gt=now)
+            ),
+            past_bookings_count=Count(
+                'id',
+                filter=Q(start_time__lte=now)
+            )
         )
 
-        # Предстоящие бронирования
-        upcoming_bookings = Event.objects.filter(
-            user=user,
-            start_time__gt=now,
-            is_canceled=False
-        ).select_related('table').order_by('start_time')
+        # Статистика по месяцам (оптимизированный запрос)
+        monthly_stats = (
+            bookings.annotate(month=TruncMonth('start_time'))
+            .values('month')
+            .annotate(
+                count=Count('id'),
+                total=Sum('total_cost')
+            )
+            .order_by('month')
+        )
 
-        # Прошедшие бронирования
-        past_bookings = Event.objects.filter(
-            user=user,
-            start_time__lte=now,
-            is_canceled=False
-        ).select_related('table').order_by('-start_time')
-
-        # Самый популярный стол
-        favorite_table = Event.objects.filter(
-            user=user
-        ).values('table').annotate(
-            count=Count('id')
-        ).order_by('-count').first()
-
-        if favorite_table:
-            favorite_table = Tables.objects.get(id=favorite_table['table'])
-        else:
-            favorite_table = None
+        # Самый популярный стол (отдельный оптимизированный запрос)
+        favorite_table = (
+            bookings.values('table__id', 'table__number', 'table__table_description')
+            .annotate(count=Count('id'))
+            .order_by('-count')
+            .first()
+        )
 
         # Подготовка данных
         data = {
             'total_bookings': stats['total_bookings'] or 0,
             'total_spent': stats['total_spent'] or 0,
-            'upcoming_bookings': upcoming_bookings,
-            'past_bookings': past_bookings,
-            'favorite_table': favorite_table
+            'upcoming_bookings_count': stats['upcoming_bookings_count'] or 0,
+            'past_bookings_count': stats['past_bookings_count'] or 0,
+            'favorite_table': favorite_table,
+            'by_month': list(monthly_stats),
         }
 
         serializer = UserStatsSerializer(data)
+        return Response(serializer.data)
+
+
+class UserBookingsListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    pagination_class = CustomPagination
+
+    def get(self, request):
+        user = request.user
+        booking_type = request.query_params.get('type', 'upcoming')
+
+        queryset = Event.objects.filter(user=user, is_canceled=False)
+
+        if booking_type == 'upcoming':
+            queryset = queryset.filter(start_time__gt=timezone.now())
+        elif booking_type == 'past':
+            queryset = queryset.filter(start_time__lte=timezone.now())
+
+        # Применяем пагинацию
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset.order_by('start_time'), request)
+
+        if page is not None:
+            serializer = UserBookingStatsSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = UserBookingStatsSerializer(queryset, many=True)
         return Response(serializer.data)

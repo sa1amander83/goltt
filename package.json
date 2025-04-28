@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "@fullcalendar/daygrid": "^6.1.17",
+    "@fullcalendar/interaction": "^6.1.17",
+    "@fullcalendar/timegrid": "^6.1.17",
+    "@fullcalendar/vue3": "^6.1.17",
+    "@vuepic/vue-datepicker": "^11.0.2",
+    "axios": "^1.9.0",
+    "bootstrap": "^5.3.5"
+  }
+}

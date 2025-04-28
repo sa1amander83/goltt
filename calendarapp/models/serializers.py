@@ -1,5 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from rest_framework.pagination import PageNumberPagination
+
 from calendarapp.models import Event,  EventMember
 from calendarapp.models.event import Tables, UserEventStats
 
@@ -110,8 +112,15 @@ class EventListSerializer(serializers.ModelSerializer):
             'created_at'
         ]
 
+
+class CustomPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
 class UserBookingStatsSerializer(serializers.ModelSerializer):
-    table = TablesSerializer()
+    table = serializers.SerializerMethodField()
     payment_status_display = serializers.CharField(source='get_payment_status_display')
 
     class Meta:
@@ -122,10 +131,18 @@ class UserBookingStatsSerializer(serializers.ModelSerializer):
             'is_paid', 'is_canceled', 'created_at'
         ]
 
+    def get_table(self, obj):
+        """Оптимизированный метод для получения данных стола"""
+        return {
+            'id': obj.table.id,
+            'number': obj.table.number,
+            'table_description': obj.table.table_description
+        }
 
 class UserStatsSerializer(serializers.Serializer):
     total_bookings = serializers.IntegerField()
     total_spent = serializers.DecimalField(max_digits=10, decimal_places=2)
-    upcoming_bookings = UserBookingStatsSerializer(many=True)
-    past_bookings = UserBookingStatsSerializer(many=True)
-    favorite_table = TablesSerializer(allow_null=True)
+    upcoming_bookings_count = serializers.IntegerField()
+    past_bookings_count = serializers.IntegerField()
+    favorite_table = serializers.DictField(allow_null=True)
+    by_month = serializers.ListField(child=serializers.DictField())
