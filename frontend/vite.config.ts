@@ -17,4 +17,12 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+
+   outputDir: '../backend/static/frontend',
+  indexPath: '../templates/frontend/index.html',
+  assetsDir: 'assets',
+  publicPath: '/static/frontend/',
+  devServer: {
+    proxy: 'http://localhost:8000' // если используете Django API
+  }
 })

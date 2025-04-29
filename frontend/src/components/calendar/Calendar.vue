@@ -3,19 +3,7 @@
     <div class="col-md-12">
       <div class="tile row">
         <div class="col-md-3">
-          <div id="external-events">
-            <h4 class="mb-4">Сейчас идет</h4>
-            <div v-if="currentBookings.length">
-              <div v-for="event in currentBookings" :key="event.id" class="fc-event">
-                <h3>{{ event.title }}</h3>
-                <p>{{ event.description }}</p>
-                <p>Стол №{{ event.table.number }}</p>
-                <p>Начало: {{ formatDateTime(event.start_time) }}</p>
-                <p>Конец: {{ formatDateTime(event.end_time) }}</p>
-              </div>
-            </div>
-            <p v-else>Не найдено бронирований</p>
-          </div>
+          
         </div>
         <div class="col-md-9">
           <FullCalendar :options="calendarOptions" />
