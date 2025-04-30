@@ -1,5 +1,5 @@
 <template>
-  <aside class="app-sidebar">
+  <aside class="app-sidebar" v-if="user">
     <ul class="app-menu">
       <li>
         <RouterLink class="app-menu__item" to="/calendar">
@@ -78,7 +78,8 @@ export default {
   props: {
     user: {
       type: Object,
-      required: true
+      required: true,
+      default: () => ({})  // безопасное значение по умолчанию
     }
   },
   data() {
@@ -95,5 +96,5 @@ export default {
 </script>
 
 <style scoped>
-/* Добавьте при необходимости стили */
+/* Стили при необходимости */
 </style>

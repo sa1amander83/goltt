@@ -32,7 +32,7 @@
 </template>
 
 <script>
-import Calendar from '@/components/calendar/Calendar.vue'
+import Calendar from '@/views/Calendar.vue'
 import CurrentEvents from '@/components/events/CurrentEvents.vue'
 import EventModal from '@/components/calendar/EventModal.vue'
 import EventDetailModal from '@/components/calendar/EventDetailModal.vue'
