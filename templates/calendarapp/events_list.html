@@ -42,9 +42,9 @@
                 <td>{{ event.end_time|date:"d.m.Y H:i" }}</td>
                 <td>
                                 {% if event.is_paid %}
-                                    <span class="badge bg-success">Paid</span>
+                                    <span class="badge bg-success">Оплачено</span>
                                 {% else %}
-                                    <span class="badge bg-warning">Pending</span>
+                                    <span class="badge bg-warning">Ожидается оплата</span>
                                 {% endif %}
                             </td>
                 <td>{{ event.total_cost }} руб.</td>

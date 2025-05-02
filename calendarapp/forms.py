@@ -72,3 +72,34 @@ class AddMemberForm(forms.ModelForm):
     class Meta:
         model = EventMember
         fields = ["user"]
+
+
+from django import forms
+from calendarapp.models.event import Tables
+
+class TableSettingsForm(forms.ModelForm):
+    class Meta:
+        model = Tables
+        fields = ['number', 'table_description', 'price_per_hour', 'price_per_half_hour']
+        labels = {
+            'number': 'Номер стола',
+            'table_description': 'Описание стола',
+            'price_per_hour': 'Цена за час (руб)',
+            'price_per_half_hour': 'Цена за 30 мин (руб)',
+        }
+        widgets = {
+            'table_description': forms.Textarea(attrs={'rows': 3}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        price_per_hour = cleaned_data.get('price_per_hour')
+        price_per_half_hour = cleaned_data.get('price_per_half_hour')
+        
+        if price_per_hour and price_per_half_hour:
+            if price_per_half_hour >= price_per_hour:
+                raise forms.ValidationError("Цена за 30 минут должна быть меньше чем за час")
+            if price_per_hour <= 0 or price_per_half_hour <= 0:
+                raise forms.ValidationError("Цены должны быть положительными числами")
+        
+        return cleaned_data

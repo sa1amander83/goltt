@@ -1,0 +1,51 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Настройки столов{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Настройки столов</h2>
+    <a href="{% url 'calendarapp:table_create' %}" class="btn btn-primary mb-3">Добавить стол</a>
+    
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+    
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>№</th>
+                    <th>Описание</th>
+                    <th>Цена за час</th>
+                    <th>Цена за 30 мин</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for table in tables %}
+                <tr>
+                    <td>{{ table.number }}</td>
+                    <td>{{ table.table_description|default:"-" }}</td>
+                    <td>{{ table.price_per_hour }} руб.</td>
+                    <td>{{ table.price_per_half_hour }} руб.</td>
+                    <td>
+                        <a href="{% url 'calendarapp:table_settings_update' table.pk %}" 
+                           class="btn btn-sm btn-warning">Редактировать</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5">Нет доступных столов</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

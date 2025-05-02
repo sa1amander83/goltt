@@ -74,6 +74,13 @@ class Event(EventAbstract):
         ('paid', 'Оплачено'),
         ('canceled', 'Отменено'),
     ]
+
+    constraints = [
+        models.UniqueConstraint(
+            fields=['user', 'start_time', 'end_time', 'table'],
+            name='unique_booking_for_user'
+        )
+    ]
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="events",verbose_name='гость')
     title = models.CharField(max_length=200)
     description = models.TextField()
@@ -157,3 +164,19 @@ class TempBooking(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+# models.py
+class Subscription(models.Model):
+    name = models.CharField(max_length=100, verbose_name="Название")
+    description = models.TextField(verbose_name="Описание")
+    price = models.DecimalField(max_digits=8, decimal_places=2, verbose_name="Цена")
+    duration = models.PositiveIntegerField(verbose_name="Длительность (дней)")
+    is_active = models.BooleanField(default=True, verbose_name="Активен")
+    number_of_events=models.PositiveIntegerField(verbose_name='количество посещений', default=4)
+    class Meta:
+        verbose_name = "Абонемент"
+        verbose_name_plural = "Абонементы"
+
+    def __str__(self):
+        return self.name

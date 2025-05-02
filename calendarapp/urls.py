@@ -1,5 +1,9 @@
 from django.urls import path
 
+from calendarapp.views.other_views import *
+
+
+
 from . import views
 from .views.event_list import AdminStatsView
 
@@ -54,5 +58,10 @@ urlpatterns = [
 path('cancel-booking/', views.cancel_booking, name='cancel_booking'),
 path('api/booking/<int:booking_id>/', views.booking_details_api, name='booking_details_api'),
 
-
+  path('settings/tables/', TableSettingsListView.as_view(), name='table_settings_list'),
+    path('settings/tables/<int:pk>/edit/', TableSettingsUpdateView.as_view(), name='table_settings_update'),
+    path('settings/tables/create/', TableCreateView.as_view(), name='table_create'),
+       path('settings/', SettingsListView.as_view(), name='all_settings'),
+    path('subscriptions/create/', SubscriptionCreateView.as_view(), name='subscription_create'),
+    path('subscriptions/<int:pk>/edit/', SubscriptionUpdateView.as_view(), name='subscription_update'),
 ]

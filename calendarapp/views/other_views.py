@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 # cal/views.py
 
 import json
@@ -21,12 +22,14 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy, reverse
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
-from django.views.generic import ListView
+from django.views.generic import ListView ,UpdateView, CreateView, TemplateView
 
+from accounts.models.user import User
 from calendarapp.models import EventMember, Event
-from calendarapp.models.event import Tables, TempBooking
+
+from calendarapp.models.event import Subscription, Tables
 from calendarapp.utils import Calendar
-from calendarapp.forms import EventForm, AddMemberForm
+from calendarapp.forms import EventForm, AddMemberForm, TableSettingsForm
 
 from django.views.decorators.csrf import csrf_exempt
 def get_date(req_day):
@@ -111,42 +114,105 @@ def create_event(request):
 
     return render(request, "event.html", {"form": form})
 
+
 @csrf_exempt
 def create_yookassa_payment(request, event=None):
     if request.method == 'POST':
         try:
+            # Если событие не передано, создаем новое
             if event is None:
-                # Создаем новое событие
                 form = EventForm(request.POST)
                 if not form.is_valid():
-                    return JsonResponse({'error': 'Invalid form data'}, status=400)
-                event = form.save(commit=False)
-                event.user = request.user
-                event.is_paid = False
-                event.save()
-            else:
-                # Используем существующее событие
-                event.is_paid = False
-                event.save()
+                    return JsonResponse({'error': 'Неверные данные формы'}, status=400)
+                
+                # Проверяем, не существует ли уже такое событие
+                existing_event = Event.objects.filter(
+                    user=request.user,
+                    title=form.cleaned_data['title'],
+                    start_time=form.cleaned_data['start_time'],
+                    end_time=form.cleaned_data['end_time'],
+                    table=form.cleaned_data['table']
+                ).first()
 
+                if existing_event:
+                    if existing_event.payment_id:
+                        # Если событие уже существует и имеет платеж
+                        payment = Payment.find_one(existing_event.payment_id)
+                        if payment.status == 'pending':
+                            return JsonResponse({
+                                'payment_id': existing_event.payment_id,
+                                'confirmation_url': payment.confirmation.confirmation_url
+                            })
+                    
+                    # Обновляем существующее событие вместо создания нового
+                    event = existing_event
+                else:
+                    # Создаем новое событие только если дубликата нет
+                    event = form.save(commit=False)
+                    event.user = request.user
+                    event.is_paid = False
+                    event.save()
+            else:
+                # Для существующего события проверяем дубликаты
+                duplicate = Event.objects.filter(
+                    user=request.user,
+                    title=event.title,
+                    start_time=event.start_time,
+                    end_time=event.end_time,
+                    table=event.table
+                ).exclude(id=event.id).first()
+
+                if duplicate:
+                    return JsonResponse({
+                        'error': 'Такое бронирование уже существует'
+                    }, status=400)
+
+            # Проверка на пересечение времени бронирования
+            conflicting_events = Event.objects.filter(
+                table=event.table,
+                start_time__lt=event.end_time,
+                end_time__gt=event.start_time
+            ).exclude(id=event.id if event.id else None)
+
+            if conflicting_events.exists():
+                return JsonResponse({
+                    'error': 'Стол уже забронирован на это время'
+                }, status=400)
+
+            # Если у события уже есть платеж, проверяем его статус
+            if event.payment_id:
+                payment = Payment.find_one(event.payment_id)
+                if payment.status == 'pending':
+                    return JsonResponse({
+                        'payment_id': event.payment_id,
+                        'confirmation_url': payment.confirmation.confirmation_url
+                    })
+
+            # Создаем новый платеж
             return_url = request.build_absolute_uri(
-                reverse('calendarapp:payment_status', args=[event.id])
+                reverse('calendarapp:payment_callback', args=[event.id])
             )
 
             payment = Payment.create({
                 "amount": {
-                    "value": str(event.total_cost),
+                    "value": f"{event.total_cost:.2f}",
                     "currency": "RUB"
                 },
                 "confirmation": {
                     "type": "redirect",
                     "return_url": return_url
                 },
+                "capture": True,
                 "description": f"Бронирование стола: {event.title}",
                 "metadata": {
-                    "event_id": str(event.id)
+                    "event_id": str(event.id),
+                    "user_id": str(request.user.id)
                 }
-            }, str(uuid.uuid4()))
+            }, idempotency_key=str(uuid.uuid4()))
+
+            # Сохраняем ID платежа
+            event.payment_id = payment.id
+            event.save()
 
             return JsonResponse({
                 'payment_id': payment.id,
@@ -154,10 +220,14 @@ def create_yookassa_payment(request, event=None):
             })
 
         except Exception as e:
-            logger.error(f"Payment error: {str(e)}")
-            return JsonResponse({'error': str(e)}, status=400)
+            logger.error(f"Ошибка создания платежа: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'error': 'Ошибка при создании платежа'
+            }, status=500)
 
-    return JsonResponse({'error': 'Invalid request method'}, status=405)
+    return JsonResponse({
+        'error': 'Неподдерживаемый метод запроса'
+    }, status=405)
 
 
 class EventEdit(generic.UpdateView):
@@ -547,12 +617,30 @@ class UserEventsCountView(generic.View):
             'max_events': 3 if not request.user.is_superuser else None
         })
 
-class UserStatsView(generic.ListView):
-    model = EventMember
+
+from django.views import generic
+from django.db.models import Count, Sum, Q, F, FilteredRelation
+User = get_user_model()
+
+class UserStatsView(generic.TemplateView):
     template_name = "calendarapp/user_stats.html"
 
-    def get_queryset(self):
-        return EventMember.objects.select_related('user', 'event').order_by('-event__start_time')
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Получаем всех пользователей с аннотированной статистикой
+        users = User.objects.annotate(
+            total_events=Count('events', filter=Q(events__is_canceled=False)),
+            paid_events=Count('events', filter=Q(events__is_canceled=False, events__is_paid=True)),
+            total_payments=Sum('events__total_cost', filter=Q(events__is_canceled=False, events__is_paid=True)),
+            unpaid_events=Count('events', filter=Q(events__is_canceled=False, events__is_paid=False))
+        ).filter(
+            events__isnull=False  # Только пользователи с бронированиями
+        ).distinct()
+
+        context['users_stats'] = users
+        return context
+        
 
 
 import uuid
@@ -658,24 +746,40 @@ def payment_callback(request, booking_id):
     return redirect('calendarapp:my_bookings')
 
 
+from django.utils import timezone
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import ListView
+from calendarapp.models import Event
+
 class MyBookingsView(LoginRequiredMixin, ListView):
     template_name = 'calendarapp/my_bookings.html'
     context_object_name = 'bookings'
     paginate_by = 10
 
     def get_queryset(self):
-        return Event.objects.filter(
-            user=self.request.user,
-            is_canceled=False
-        ).select_related('table').order_by('-start_time')
+        user = self.request.user
+        base_queryset = Event.objects.filter(is_canceled=False).select_related('table', 'user').order_by('-start_time')
+        
+        # Добавляем аннотацию для user_name
+        base_queryset = base_queryset.annotate(user_name=F('user__email'))
+        
+        if user.is_staff or user.is_superuser:
+            return base_queryset
+        else:
+            return base_queryset.filter(user=user)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['now'] = timezone.now()
-        context['unpaid_bookings'] = self.get_queryset().filter(is_paid=False)
-        context['paid_bookings'] = self.get_queryset().filter(is_paid=True)
+        user = self.request.user
 
-        # Add count of paid bookings for the limit check
+        # Используем queryset с учетом прав доступа
+        queryset = self.get_queryset()
+
+        context['now'] = timezone.now()
+        context['unpaid_bookings'] = queryset.filter(is_paid=False)
+        context['paid_bookings'] = queryset.filter(is_paid=True)
+        context['user_name'] =  user.email
+        # Количество оплаченных бронирований для проверки лимита
         context['paid_bookings_count'] = context['paid_bookings'].count()
         context['max_bookings'] = 3
         return context
@@ -683,6 +787,10 @@ class MyBookingsView(LoginRequiredMixin, ListView):
 
 @csrf_exempt
 def pay_booking(request, booking_id):
+    # Проверка аутентификации
+    if not request.user.is_authenticated:
+        return redirect('login')
+    
     booking = get_object_or_404(Event, id=booking_id, user=request.user)
 
     if booking.is_paid:
@@ -694,9 +802,10 @@ def pay_booking(request, booking_id):
     )
 
     try:
+        # Создаем платеж
         payment = Payment.create({
             "amount": {
-                "value": str(booking.total_cost),
+                "value": f"{booking.total_cost:.2f}",
                 "currency": "RUB"
             },
             "confirmation": {
@@ -704,21 +813,24 @@ def pay_booking(request, booking_id):
                 "return_url": return_url
             },
             "capture": True,
-            "description": f"Оплата брони стола: {booking.title}",
+            "description": f"Оплата брони: {booking.title}",
             "metadata": {
-                "booking_id": str(booking.id)
+                "booking_id": str(booking.id),
+                "user_id": str(request.user.id)
             }
-        }, str(uuid.uuid4()))
+        }, idempotency_key=str(uuid.uuid4()))
 
         booking.payment_id = payment.id
         booking.save()
 
+        # Редирект на страницу оплаты ЮКассы
         return redirect(payment.confirmation.confirmation_url)
 
     except Exception as e:
-        logger.error(f"Payment error: {str(e)}")
-        messages.error(request, 'Ошибка при создании платежа')
-        return redirect('calendarapp:my_bookings')
+        logger.error(f"Payment error: {str(e)}", exc_info=True)
+        messages.error(request, 'Ошибка при создании платежа. Попробуйте позже.')
+        return redirect('calendarapp:event_detail', booking_id=booking.id)
+   
 
 
 # calendarapp/views.py
@@ -726,35 +838,72 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse
 
 
+import hmac
+import hashlib
+import json
+
 @csrf_exempt
 def yookassa_webhook(request):
     """Обработчик webhook уведомлений от ЮKassa"""
-    if request.method == 'POST':
-        try:
-            event_json = json.loads(request.body)
-            payment_id = event_json.get('object', {}).get('id')
-
-            if payment_id:
-                # Находим соответствующее событие
-                event = Event.objects.filter(payment_id=payment_id).first()
-                if event:
-                    payment = Payment.find_one(payment_id)
-                    event.payment_status = payment.status
-                    event.is_paid = (payment.status == 'succeeded')
-                    event.save()
-
-                    if payment.status == 'succeeded':
-                        logger.info(f"Payment succeeded for event {event.id}")
-                    else:
-                        logger.info(f"Payment status changed to {payment.status} for event {event.id}")
-
-            return HttpResponse(status=200)
-        except Exception as e:
-            logger.error(f"Webhook error: {str(e)}")
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+    
+    try:
+        # Получаем подпись из заголовков
+        signature = request.headers.get('Content-Signature', '')
+        if not signature:
+            logger.warning("Missing Content-Signature header")
             return HttpResponse(status=400)
 
-    return HttpResponse(status=405)
+        # Проверяем подпись с использованием секретного ключа API
+        secret_key = settings.YOOKASSA_SECRET_KEY.encode('utf-8')
+        digest = hmac.new(secret_key, request.body, hashlib.sha256).hexdigest()
+        expected_signature = f"sha256={digest}"
+        
+        if not hmac.compare_digest(expected_signature, signature):
+            logger.warning(f"Invalid webhook signature. Expected: {expected_signature}, got: {signature}")
+            return HttpResponse(status=403)
 
+        event_json = json.loads(request.body)
+        payment_id = event_json.get('object', {}).get('id')
+        
+        if not payment_id:
+            logger.warning("Missing payment ID in webhook")
+            return HttpResponse(status=400)
+
+        # Обрабатываем только нужные типы событий
+        event_type = event_json.get('event')
+        if event_type not in ['payment.succeeded', 'payment.waiting_for_capture', 'payment.canceled']:
+            return HttpResponse(status=200)
+
+        # Находим бронирование
+        booking = Event.objects.filter(payment_id=payment_id).first()
+        if not booking:
+            logger.warning(f"Booking not found for payment {payment_id}")
+            return HttpResponse(status=404)
+
+        # Получаем актуальный статус платежа из API
+        payment = Payment.find_one(payment_id)
+        booking.payment_status = payment.status
+        booking.is_paid = (payment.status == 'succeeded')
+        booking.save()
+
+        if payment.status == 'succeeded':
+            logger.info(f"Payment succeeded for booking {booking.id}")
+            # Дополнительные действия при успешной оплате
+            #send_payment_success_email(booking)
+        else:
+            logger.info(f"Payment status changed to {payment.status} for booking {booking.id}")
+
+        return HttpResponse(status=200)
+
+    except json.JSONDecodeError:
+        logger.error("Invalid JSON in webhook")
+        return HttpResponse(status=400)
+    except Exception as e:
+        logger.error(f"Webhook processing error: {str(e)}", exc_info=True)
+        return JsonResponse({'error': 'Internal server error'}, status=500)
+   
 
 # calendarapp/views.py
 from django.http import JsonResponse
@@ -830,3 +979,165 @@ def booking_details_api(request, booking_id):
     except Event.DoesNotExist:
         return JsonResponse({'error': 'Бронирование не найдено'}, status=404)
 
+from django.contrib.auth.mixins import UserPassesTestMixin
+from django.views.generic import View
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.urls import reverse_lazy
+
+class TableSettingsListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    """Список всех столов для настройки"""
+    model = Tables
+    template_name = 'calendarapp/settings_table.html'
+    context_object_name = 'tables'
+    login_url = reverse_lazy('admin:login')
+    
+    def test_func(self):
+        return self.request.user.is_superuser
+
+class TableSettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    """Редактирование настроек конкретного стола"""
+    model = Tables
+    form_class = TableSettingsForm
+    template_name = 'calendarapp/table_settings_form.html'
+    success_url = reverse_lazy('calendarapp:table_settings_list')
+    login_url = reverse_lazy('admin:login')
+    
+    def test_func(self):
+        return self.request.user.is_superuser
+    
+    def form_valid(self, form):
+        messages.success(self.request, f'Настройки стола №{form.instance.number} успешно обновлены!')
+        return super().form_valid(form)
+    
+    def form_invalid(self, form):
+        messages.error(self.request, 'Ошибка при сохранении настроек')
+        return super().form_invalid(form)
+    """Настройки цен столов (только для администраторов)"""
+    login_url = reverse_lazy('admin:login')
+    template_name = 'calendarapp/settings_table.html'
+    
+    def test_func(self):
+        """Проверка что пользователь администратор"""
+        return self.request.user.is_superuser
+    
+    def get_table_settings(self):
+        """Получаем или создаем настройки столов"""
+        table_settings, _ = Tables.objects.get_or_create(
+            defaults={
+                'number': 1,
+                'price_per_hour': 500,
+                'price_per_half_hour': 300
+            }
+        )
+        return table_settings
+    
+    def get(self, request, *args, **kwargs):
+        table_settings = self.get_table_settings()
+        return render(request, self.template_name, {
+            'price_per_hour': table_settings.price_per_hour,
+            'price_per_half_hour': table_settings.price_per_half_hour,
+        })
+    
+    def post(self, request, *args, **kwargs):
+        table_settings = self.get_table_settings()
+        
+        try:
+            price_per_hour = float(request.POST.get('price_per_hour'))
+            price_per_half_hour = float(request.POST.get('price_per_half_hour'))
+            
+            # Валидация цен
+            if price_per_hour <= 0 or price_per_half_hour <= 0:
+                raise ValueError("Цена должна быть больше 0")
+            if price_per_half_hour >= price_per_hour:
+                raise ValueError("Цена за полчаса должна быть меньше чем за час")
+            
+            table_settings.price_per_hour = price_per_hour
+            table_settings.price_per_half_hour = price_per_half_hour
+            table_settings.save()
+            
+            messages.success(request, 'Настройки цен успешно сохранены!')
+            return redirect('calendarapp:settings_table')
+            
+        except ValueError as e:
+            messages.error(request, f'Ошибка: {str(e)}')
+        except Exception as e:
+            messages.error(request, 'Произошла ошибка при сохранении настроек')
+            logger.error(f"Error saving table settings: {str(e)}")
+        
+        return render(request, self.template_name, {
+            'price_per_hour': request.POST.get('price_per_hour'),
+            'price_per_half_hour': request.POST.get('price_per_half_hour'),
+        })
+    
+
+class TableCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
+    """Создание нового стола"""
+    model = Tables
+    form_class = TableSettingsForm
+    template_name = 'calendarapp/table_settings_form.html'
+    success_url = reverse_lazy('calendarapp:table_settings_list')
+    login_url = reverse_lazy('admin:login')
+    
+    def test_func(self):
+        return self.request.user.is_superuser
+    
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, f'Стол №{form.instance.number} успешно создан!')
+        return response
+    
+
+class SettingsListView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    template_name = 'calendarapp/settings_list.html'
+    login_url = reverse_lazy('admin:login')
+    
+    def test_func(self):
+        return self.request.user.is_superuser
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Все столы с ценами
+        context['tables'] = Tables.objects.all().order_by('number')
+        
+        # Все абонементы
+        context['subscriptions'] = Subscription.objects.all().order_by('name')
+        
+        # Другие настройки (пример)
+        context['site_settings'] = {
+            'site_name': 'Мой Бизнес',
+            'business_hours': '09:00 - 22:00',
+            # Добавьте другие настройки по необходимости
+        }
+        
+        return context
+
+# views.py
+class SubscriptionCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
+    model = Subscription
+    fields = ['name', 'description', 'price', 'duration', 'is_active', 'number_of_events']
+    template_name = 'calendarapp/subscription_form.html'
+    success_url = reverse_lazy('calendarapp:settings_list')
+    login_url = reverse_lazy('admin:login')
+    
+    def test_func(self):
+        return self.request.user.is_superuser
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Абонемент успешно создан!')
+        return super().form_valid(form)
+
+class SubscriptionUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    model = Subscription
+    fields = ['name', 'description', 'price', 'duration', 'is_active', 'number_of_events']
+    template_name = 'calendarapp/subscription_form.html'
+    success_url = reverse_lazy('calendarapp:all_settings')
+    login_url = reverse_lazy('admin:login')
+    
+    def test_func(self):
+        return self.request.user.is_superuser
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Абонемент успешно обновлен!')
+        return super().form_valid(form)

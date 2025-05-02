@@ -234,10 +234,18 @@
                 </ul>
 
             </li>
-  <li>
+            <li>
                 <a class="app-menu__item" href="{% url 'calendarapp:user_stats' %}"><i
                         class="app-menu__icon fa fa-users"></i><span class="app-menu__label">Посетители</span></a>
             </li>
+
+            <li>
+                <a class="app-menu__item" href="{% url 'calendarapp:all_settings' %}">
+                    <i
+                        class="app-menu__icon fa fa-cog"></i><span
+                        class="app-menu__label">Настройки</span></a>
+            </li>
+
         {% endif %}
 
 
@@ -247,10 +255,7 @@
                 class="app-menu__icon fa fa-dashboard"></i><span
                 class="app-menu__label">Мои бронирования</span></a>
     </li>
-{#    <li>#}
-{#        <a class="app-menu__item" href="{% url 'calendarapp:user_stats' %}"><i#}
-{#                class="app-menu__icon fa fa-file-code-o"></i><span class="app-menu__label">Мой отчет</span></a>#}
-{#    </li>#}
+
 
     <li class="treeview">
         <a class="app-menu__item" href="#" data-toggle="treeview"><i
@@ -278,6 +283,8 @@
 
         </ul>
 
+
+   
     </li>
 
 {% endif %}

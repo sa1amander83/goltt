@@ -2,27 +2,26 @@
 {% load static %}
 {% block title %}Статистика{% endblock title %}
 
-{% load static %}
 {% block content %}
 <div class="container mt-4">
     <h2>Статистика посетителей</h2>
     <table class="table table-striped">
         <thead>
             <tr>
-                <th>ФИО</th>
-                <th>Телефон</th>
+                <th>Email</th>
                 <th>Всего броней</th>
-                <th>Оплаченные брони</th>
+                <th>Оплаченные</th>
+                <th>Неоплаченные</th>
                 <th>Общая сумма</th>
             </tr>
         </thead>
         <tbody>
             {% for user in users_stats %}
             <tr>
-                <td>{{ user.email}}</td>
-                <td>{{ user.phone|default:'Не указан' }}</td>
+                <td>{{ user.email }}</td>
                 <td>{{ user.total_events }}</td>
                 <td>{{ user.paid_events }}</td>
+                <td>{{ user.unpaid_events }}</td>
                 <td>{{ user.total_payments|default:0 }} руб.</td>
             </tr>
             {% empty %}
