@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container">
+  <div class="app">
     <NavBar />
     <div class="main-content">
       <Sidebar :current-bookings="currentBookings" />
@@ -8,23 +8,39 @@
       </div>
     </div>
   </div>
+
+
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import NavBar from '@/components/NavBar.vue'
 import Sidebar from '@/components/Sidebar.vue'
 
 const currentBookings = ref([])
+const isLoading = ref(true)
+const error = ref(null)
+const abortController = new AbortController()
 
 onMounted(async () => {
   try {
-    const response = await axios.get('/api/events/running/')
+    const response = await axios.get('/api/events/running/', {
+      signal: abortController.signal
+    })
     currentBookings.value = response.data.events
-  } catch (error) {
-    console.error('Error loading current events:', error)
+  } catch (err) {
+    if (!axios.isCancel(err)) {
+      error.value = err.message
+      console.error('Error loading events:', err)
+    }
+  } finally {
+    isLoading.value = false
   }
+})
+
+onUnmounted(() => {
+  abortController.abort()
 })
 </script>
 

@@ -13,7 +13,7 @@ class SignInViewTests(TestCase):
 
     def setUp(self):
         # URL for the signin page
-        self.signin_url = reverse('accounts:signin')
+        self.signin_url = reverse('accounts:login')
         # Create a test user
         self.user = User.objects.create_user(
             email='testuser@example.com',
@@ -88,18 +88,18 @@ class SignOutViewTests(TestCase):
         self.client.login(email='testuser@example.com', password='password123')
         
         # Check that the user is logged in
-        response = self.client.get(reverse('accounts:signin'))  # You can replace this with any view that requires authentication
+        response = self.client.get(reverse('accounts:login'))  # You can replace this with any view that requires authentication
         self.assertEqual(response.status_code, 200)
 
         # Call the signout view
         response = self.client.get(self.signout_url)
         
         # Check that the user is redirected to the signing page
-        self.assertRedirects(response, reverse('accounts:signin'))
+        self.assertRedirects(response, reverse('accounts:login'))
 
         # Check that the user is logged out
         # Attempt to access a page that requires authentication
-        response = self.client.get(reverse('accounts:signin'))
+        response = self.client.get(reverse('accounts:login'))
         self.assertEqual(response.status_code, 200)  # User should still be able to access the sign-in page
         self.assertFalse(response.wsgi_request.user.is_authenticated)  # Ensure the user is logged out
 
@@ -114,7 +114,7 @@ class SignOutViewTests(TestCase):
             password='password123'
         )
         self.signout_url = reverse('accounts:signout')  # URL for the signout view
-        self.signing_url = reverse('accounts:signin')  # URL to redirect to after signing out
+        self.signing_url = reverse('accounts:login')  # URL to redirect to after signing out
 
     def test_signout_redirect(self):
         """ Test that the user is logged out and redirected correctly """

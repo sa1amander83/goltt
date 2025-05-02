@@ -2,16 +2,18 @@ import json
 
 from django.views.generic import View
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
 from calendarapp.models import Event
 
 
-class DashboardView( View):
+class DashboardView(View):
 
     template_name = "calendarapp/dashboard.html"
 
     def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('accounts:login')
         events = Event.objects.get_all_events(user=request.user)
         running_events = Event.objects.get_running_events(user=request.user)
         latest_events = Event.objects.filter(user=request.user).order_by("-id")[:10]

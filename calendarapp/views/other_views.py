@@ -45,7 +45,7 @@ def next_month(d):
 
 
 class CalendarView(LoginRequiredMixin, generic.ListView):
-    login_url = "accounts:signin"
+    login_url = "accounts:login"
     model = Event
     template_name = "calendar.html"
 
@@ -167,7 +167,7 @@ logger = logging.getLogger(__name__)
 
 class CalendarViewNew(generic.View):
     # class CalendarViewNew(LoginRequiredMixin, generic.View):
-    login_url = "accounts:signin"
+    login_url = "accounts:login"
     template_name = "calendarapp/calendar.html"
     form_class = EventForm
 
@@ -234,7 +234,7 @@ class CalendarViewNew(generic.View):
 
         if not request.user.is_authenticated:
             messages.error(request, "Для создания события необходимо войти в систему.")
-            return redirect("accounts:signin")
+            return redirect("accounts:login")
         form = self.form_class(request.POST)
         if form.is_valid():
 

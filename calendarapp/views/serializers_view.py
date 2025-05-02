@@ -13,10 +13,10 @@ from django.db.models import Count, Sum, Q
 from django.db.models.functions import TruncMonth
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, IsAuthenticatedOrReadOnly
 from django.utils import timezone
 from datetime import datetime
-
+from rest_framework.exceptions import PermissionDenied
 
 class EventSerializer(serializers.ModelSerializer):
     class Meta:
@@ -33,6 +33,7 @@ class CalendarView(APIView):
         return Response({"calendar": cal.formatmonth(withyear=True), "events": serializer.data})
 
 class EventCreateAPIView(APIView):
+    permission_classes=[IsAuthenticated]
     def post(self, request, *args, **kwargs):
         serializer = EventSerializer(data=request.data)
         if serializer.is_valid():
@@ -42,6 +43,8 @@ class EventCreateAPIView(APIView):
 
 
 class EventDetailAPIView(APIView):
+    permission_classes=[IsAuthenticatedOrReadOnly]
+
     def get(self, request, event_id, *args, **kwargs):
         event = get_object_or_404(Event, id=event_id)
         serializer = EventSerializer(event)
@@ -49,6 +52,8 @@ class EventDetailAPIView(APIView):
 
 
 class EventUpdateAPIView(APIView):
+    permission_classes=[IsAuthenticatedOrReadOnly]
+
     def post(self, request, event_id, *args, **kwargs):
         event = get_object_or_404(Event, id=event_id)
         serializer = EventSerializer(event, data=request.data, partial=True)
@@ -56,11 +61,14 @@ class EventUpdateAPIView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
+    
 class EventDeleteAPIView(APIView):
+    permission_classes=[IsAuthenticatedOrReadOnly]
+
     def post(self, request, event_id, *args, **kwargs):
         event = get_object_or_404(Event, id=event_id)
         event.delete()
-        return Response({"message": "Event deleted successfully"})
+        return Response({"message": "событие удалено"})
 
 
 class AvailableTablesAPIView(APIView):
@@ -84,7 +92,7 @@ class EventMemberCreateAPIView(APIView):
         user = request.data.get('user')
         # Логика добавления пользователя в EventMember
         event_member = EventMember.objects.create(event=event, user=user)
-        return Response({"message": "Member added successfully"}, status=201)
+        return Response({"message": f"Member {event_member } added successfully"}, status=201)
 
 
 class AdminStatsAPIView(APIView):
@@ -175,7 +183,7 @@ class AdminStatsAPIView(APIView):
 
 
 class EventListAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
         return Event.objects.filter(
