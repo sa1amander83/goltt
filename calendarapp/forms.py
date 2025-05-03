@@ -80,12 +80,13 @@ from calendarapp.models.event import Tables
 class TableSettingsForm(forms.ModelForm):
     class Meta:
         model = Tables
-        fields = ['number', 'table_description', 'price_per_hour', 'price_per_half_hour']
+        fields = ['number', 'table_description', 'price_per_hour', 'price_per_half_hour','is_active']
         labels = {
             'number': 'Номер стола',
             'table_description': 'Описание стола',
             'price_per_hour': 'Цена за час (руб)',
             'price_per_half_hour': 'Цена за 30 мин (руб)',
+            'is_active':'Активен'
         }
         widgets = {
             'table_description': forms.Textarea(attrs={'rows': 3}),

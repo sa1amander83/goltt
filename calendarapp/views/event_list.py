@@ -1,4 +1,6 @@
+from datetime import timezone
 from decimal import Decimal
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Sum, F
@@ -10,15 +12,44 @@ from django.views.generic import ListView
 from calendarapp.models import Event
 from calendarapp.models.event import Tables
 
-
-class AllEventsListView(ListView):
-    """ All event list views """
-
-    template_name = "calendarapp/events_list.html"
+class AllEventsListView(LoginRequiredMixin, ListView):
     model = Event
+    template_name = 'calendarapp/events_list.html'
+    context_object_name = 'events'
+    paginate_by = 20
 
     def get_queryset(self):
-        return Event.objects.get_all_events(user=self.request.user)
+        queryset = super().get_queryset()
+        
+        # Фильтрация по статусу
+        status = self.request.GET.get('status')
+        if status == 'running':
+            queryset = queryset.filter(
+                start_time__lte=timezone.now(),
+                end_time__gte=timezone.now(),
+                is_canceled=False
+            )
+        elif status == 'upcoming':
+            queryset = queryset.filter(
+                start_time__gt=timezone.now(),
+                is_canceled=False
+            )
+        elif status == 'completed':
+            queryset = queryset.filter(
+                end_time__lt=timezone.now(),
+                is_canceled=False
+            )
+        
+        # Для админов - все события, для обычных пользователей - только свои
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(user=self.request.user)
+            
+        return queryset.select_related('table', 'user').order_by('-start_time')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['current_status'] = self.request.GET.get('status', 'all')
+        return context
 
 
 class RunningEventsListView(ListView):

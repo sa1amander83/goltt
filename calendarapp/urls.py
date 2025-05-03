@@ -64,4 +64,7 @@ path('api/booking/<int:booking_id>/', views.booking_details_api, name='booking_d
        path('settings/', SettingsListView.as_view(), name='all_settings'),
     path('subscriptions/create/', SubscriptionCreateView.as_view(), name='subscription_create'),
     path('subscriptions/<int:pk>/edit/', SubscriptionUpdateView.as_view(), name='subscription_update'),
+    path('tables/<int:pk>/delete/', TableDeleteView.as_view(), name='table_delete'),
+path('subscriptions/<int:pk>/delete/', SubscriptionDeleteView.as_view(), name='subscription_delete'),
+  path('cancel-booking/', views.cancel_booking, name='cancel_booking'),
 ]

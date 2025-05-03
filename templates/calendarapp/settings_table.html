@@ -24,6 +24,7 @@
                     <th>Описание</th>
                     <th>Цена за час</th>
                     <th>Цена за 30 мин</th>
+                    <th>Активен</th>
                     <th>Действия</th>
                 </tr>
             </thead>
@@ -34,6 +35,7 @@
                     <td>{{ table.table_description|default:"-" }}</td>
                     <td>{{ table.price_per_hour }} руб.</td>
                     <td>{{ table.price_per_half_hour }} руб.</td>
+                    <td>{%if table.is_active%}Активен {%else%} Не активен {%endif%} </td>
                     <td>
                         <a href="{% url 'calendarapp:table_settings_update' table.pk %}" 
                            class="btn btn-sm btn-warning">Редактировать</a>

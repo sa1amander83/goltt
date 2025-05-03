@@ -21,6 +21,7 @@
                             <th>Описание</th>
                             <th>Цена за час</th>
                             <th>Цена за 30 мин</th>
+                            <th>Статус</th>
                             <th>Действия</th>
                         </tr>
                     </thead>
@@ -31,14 +32,47 @@
                             <td>{{ table.table_description|default:"-" }}</td>
                             <td>{{ table.price_per_hour }} руб.</td>
                             <td>{{ table.price_per_half_hour }} руб.</td>
+                            <td>{% if table.is_active %}Активен{% else %}Не активен{% endif %}</td>
                             <td>
-                                <a href="{% url 'calendarapp:table_settings_update' table.pk %}" 
-                                   class="btn btn-sm btn-warning">Изменить</a>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'calendarapp:table_settings_update' table.pk %}" 
+                                       class="btn btn-sm btn-warning">Изменить</a>
+                                    <button type="button" class="btn btn-sm btn-danger" 
+                                            data-toggle="modal" data-target="#deleteTableModal{{ table.id }}">
+                                        Удалить
+                                    </button>
+                                </div>
+                                
+                                <!-- Модальное окно подтверждения удаления стола -->
+                                <div class="modal fade" id="deleteTableModal{{ table.id }}" tabindex="-1" role="dialog" 
+                                     aria-labelledby="deleteTableModalLabel" aria-hidden="true">
+                                    <div class="modal-dialog" role="document">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="deleteTableModalLabel">Подтверждение удаления</h5>
+                                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                    <span aria-hidden="true">&times;</span>
+                                                </button>
+                                            </div>
+                                            <div class="modal-body">
+                                                Вы действительно хотите удалить стол №{{ table.number }}?
+                                                <br><strong>Это действие нельзя отменить!</strong>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                                                <form action="{% url 'calendarapp:table_delete' table.pk %}" method="post" style="display: inline;">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-danger">Удалить</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="5">Нет доступных столов</td>
+                            <td colspan="6">Нет доступных столов</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -62,6 +96,7 @@
                             <th>Описание</th>
                             <th>Цена</th>
                             <th>Длительность</th>
+                            <th>Посещений</th>
                             <th>Действия</th>
                         </tr>
                     </thead>
@@ -72,14 +107,47 @@
                             <td>{{ sub.description|truncatechars:50 }}</td>
                             <td>{{ sub.price }} руб.</td>
                             <td>{{ sub.duration }} дней</td>
+                            <td>{{ sub.number_of_events }}</td>
                             <td>
-                                <a href="{% url 'calendarapp:subscription_update' sub.pk %}" 
-                                   class="btn btn-sm btn-warning">Изменить</a>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'calendarapp:subscription_update' sub.pk %}" 
+                                       class="btn btn-sm btn-warning">Изменить</a>
+                                    <button type="button" class="btn btn-sm btn-danger" 
+                                            data-toggle="modal" data-target="#deleteSubModal{{ sub.id }}">
+                                        Удалить
+                                    </button>
+                                </div>
+                                
+                                <!-- Модальное окно подтверждения удаления абонемента -->
+                                <div class="modal fade" id="deleteSubModal{{ sub.id }}" tabindex="-1" role="dialog" 
+                                     aria-labelledby="deleteSubModalLabel" aria-hidden="true">
+                                    <div class="modal-dialog" role="document">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="deleteSubModalLabel">Подтверждение удаления</h5>
+                                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                    <span aria-hidden="true">&times;</span>
+                                                </button>
+                                            </div>
+                                            <div class="modal-body">
+                                                Вы действительно хотите удалить абонемент "{{ sub.name }}"?
+                                                <br><strong>Это действие нельзя отменить!</strong>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                                                <form action="{% url 'calendarapp:subscription_delete' sub.pk %}" method="post" style="display: inline;">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-danger">Удалить</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="5">Нет доступных абонементов</td>
+                            <td colspan="6">Нет доступных абонементов</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -105,4 +173,17 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Дополнительные скрипты для модальных окон, если необходимо
+$(document).ready(function(){
+    // Инициализация всех модальных окон
+    $('.modal').modal({
+        backdrop: 'static',
+        keyboard: false
+    });
+});
+</script>
 {% endblock %}

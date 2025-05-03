@@ -19,7 +19,8 @@
     <h2>
         {% if current_status == 'running' %}Текущие бронирования
         {% elif current_status == 'upcoming' %}Предстоящие бронирования
-        {% else %}Завершенные бронирования{% endif %}
+        {% elif current_status == 'completed' %} Завершенные бронирования
+        {% else %}Все бронирования{% endif %}
     </h2>
     
     <table class="table table-striped">

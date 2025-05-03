@@ -1,107 +1,108 @@
 {% extends 'base/base.html' %}
 {% load static %}
 
-{% block title %}Все настройки{% endblock %}
+{% block title %}{% if object %}Редактирование{% else %}Создание{% endif %} абонемента{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-    <h1 class="mb-4">Текущие настройки системы</h1>
-    
-    <!-- Секция столов -->
-    <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-            <h2>Настройки столов</h2>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>№ стола</th>
-                            <th>Описание</th>
-                            <th>Цена за час</th>
-                            <th>Цена за 30 мин</th>
-                            <th>Действия</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for table in tables %}
-                        <tr>
-                            <td>{{ table.number }}</td>
-                            <td>{{ table.table_description|default:"-" }}</td>
-                            <td>{{ table.price_per_hour }} руб.</td>
-                            <td>{{ table.price_per_half_hour }} руб.</td>
-                            <td>
-                                <a href="{% url 'calendarapp:table_settings_update' table.pk %}" 
-                                   class="btn btn-sm btn-warning">Изменить</a>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5">Нет доступных столов</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0">
+                        {% if object %}
+                            <i class="fas fa-edit"></i> Редактирование абонемента
+                        {% else %}
+                            <i class="fas fa-plus-circle"></i> Создание нового абонемента
+                        {% endif %}
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Поле Name -->
+                        <div class="form-group">
+                            <label for="id_name">Название</label>
+                            <input type="text" name="name" class="form-control" required id="id_name" 
+                                   value="{{ form.name.value|default:'' }}">
+                        </div>
+                        
+                        <!-- Поле Description -->
+                        <div class="form-group">
+                            <label for="id_description">Описание</label>
+                            <textarea name="description" class="form-control" id="id_description" 
+                                      rows="3">{{ form.description.value|default:'' }}</textarea>
+                        </div>
+                        
+                        <div class="row">
+                            <!-- Поле Price -->
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="id_price">Цена</label>
+                                    <div class="input-group">
+                                        <input type="number" name="price" class="form-control" 
+                                               step="0.01" required id="id_price" 
+                                               value="{{ form.price.value|default:'' }}">
+                                        <div class="input-group-append">
+                                            <span class="input-group-text">руб.</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Поле Duration -->
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="id_duration">Длительность</label>
+                                    <div class="input-group">
+                                        <input type="number" name="duration" class="form-control" 
+                                               required id="id_duration" 
+                                               value="{{ form.duration.value|default:'' }}">
+                                        <div class="input-group-append">
+                                            <span class="input-group-text">дней</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <!-- Поле Number of Events -->
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="id_number_of_events">Количество посещений</label>
+                                    <input type="number" name="number_of_events" class="form-control" 
+                                           required id="id_number_of_events" 
+                                           value="{{ form.number_of_events.value|default:'4' }}">
+                                </div>
+                            </div>
+                            
+                            <!-- Поле Is Active -->
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <div class="custom-control custom-checkbox mt-4 pt-2">
+                                        <input type="checkbox" name="is_active" class="custom-control-input" 
+                                               id="id_is_active" {% if form.is_active.value %}checked{% endif %}>
+                                        <label class="custom-control-label" for="id_is_active">
+                                            Активен
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Сохранить
+                            </button>
+                            <a href="{% url 'calendarapp:all_settings' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
             </div>
-            <a href="{% url 'calendarapp:table_create' %}" class="btn btn-success mt-3">Добавить стол</a>
-        </div>
-    </div>
-
-    <!-- Секция абонементов -->
-    <div class="card mb-4">
-        <div class="card-header bg-info text-white">
-            <h2>Абонементы</h2>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Название</th>
-                            <th>Описание</th>
-                            <th>Цена</th>
-                            <th>Длительность</th>
-                            <th>Действия</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for sub in subscriptions %}
-                        <tr>
-                            <td>{{ sub.name }}</td>
-                            <td>{{ sub.description|truncatechars:50 }}</td>
-                            <td>{{ sub.price }} руб.</td>
-                            <td>{{ sub.duration }} дней</td>
-                            <td>
-                                <a href="{% url 'calendarapp:subscription_update' sub.pk %}" 
-                                   class="btn btn-sm btn-warning">Изменить</a>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5">Нет доступных абонементов</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            <a href="{% url 'calendarapp:subscription_create' %}" class="btn btn-success mt-3">Добавить абонемент</a>
-        </div>
-    </div>
-
-    <!-- Секция общих настроек -->
-    <div class="card">
-        <div class="card-header bg-secondary text-white">
-            <h2>Общие настройки</h2>
-        </div>
-        <div class="card-body">
-            <dl class="row">
-                {% for key, value in site_settings.items %}
-                <dt class="col-sm-3">{{ key|title }}</dt>
-                <dd class="col-sm-9">{{ value }}</dd>
-                {% endfor %}
-            </dl>
-            <a href="{% url 'calendarapp:all_settings' %}" class="btn btn-primary">Изменить настройки</a>
         </div>
     </div>
 </div>

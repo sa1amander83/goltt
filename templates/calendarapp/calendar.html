@@ -196,14 +196,21 @@
     </div>
     
 {% endblock content %}
-
 {% block extrascripts %}
-    <style>
-        .fc-day-today {
-            background-color: rgb(255, 220, 40) !important;
-            background-color: var(--fc-today-bg-color, rgb(158, 148, 87)) !important;
-        }
-    </style>
+
+<style>
+    .fc-past-event {
+    background-color: #6a6d70 !important;
+    border-color: #535354 !important;
+    color: #cfcfcf !important;
+    text-decoration-color: #cfcfcf !important;
+    opacity: 0.7;
+}
+
+.fc-past-event:hover {
+    background-color: #e9ecef !important;
+}
+</style>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="{% static 'calender/main.js' %}"></script>
@@ -211,6 +218,7 @@
     <script src="{% static 'js/ru.js' %}"></script>
     <script>
         const isAdmin = {{ is_admin|yesno:"true,false" }};
+        const userId = {{ user_id|default:"null" }};
 
         function formatDateTime(dateTime) {
             return new Date(dateTime).toLocaleString('ru-RU', {
@@ -231,13 +239,14 @@
                 `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:00`;
         }
 
+        function isPastEvent(event) {
+            return new Date(event.end) < new Date();
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
-            // Calendar initialization
             const calendarEl = document.getElementById('calendar');
             const today = new Date();
-            const isAdmin = {{ is_admin|yesno:"true,false" }};
-            const userId = {{ user_id|default:"null" }};
-
+            
             const calendar = new FullCalendar.Calendar(calendarEl, {
                 headerToolbar: {
                     left: 'prev,next today',
@@ -254,40 +263,65 @@
                 locale: 'ru',
                 slotDuration: '00:30:00',
                 slotLabelInterval: '00:30',
-                slotMinTime: '09:00:00',
+                slotMinTime: '08:00:00',
                 slotMaxTime: '24:00:00',
                 initialDate: today,
+                editable:false,
                 navLinks: true,
-                {#selectable: true,#}
                 selectable: userId !== null,
-                editable: isAdmin,
-                {#selectable: isAdmin,#}
+                editable: function(event) {
+                    // Разрешаем редактирование только для будущих событий и только админу
+                    if (!event) return isAdmin;
+                    return (isAdmin || event.extendedProps.user_id == userId) && !isPastEvent(event);
+                },
                 selectMirror: true,
+                eventDrop: function(info) {
+    if (!isAdmin && info.event.extendedProps.user_id != userId) {
+        info.revert();
+        alert('Вы можете изменять только свои бронирования');
+    }
+},
+
+eventResize: function(info) {
+    if (!isAdmin && info.event.extendedProps.user_id != userId) {
+        info.revert();
+        alert('Вы можете изменять только свои бронирования');
+    }
+},
+
+                 isPastEvent:function(event) {
+        return new Date(event.end) < today;
+    },
+                eventDidMount: function(info) {
+            if (isPastEvent(info.event)) {
+                // Добавляем класс для стилизации
+                info.el.classList.add('fc-past-event');
+                
+                // Делаем курсор "недоступным"
+                info.el.style.cursor = 'not-allowed';
+            }
+        },
                 dayCellDidMount: function (info) {
                     if (info.date.toDateString() === new Date().toDateString()) {
                         info.el.classList.add('fc-today');
                     }
                 },
-                // Event selection logic
                 select: function (arg) {
+                    if (userId === null) {
+                        alert('Для создания бронирования необходимо войти в систему');
+                        return;
+                    }
 
-                    if (userId === null) {
-                        alert('Для создания бронирования необходимо войти в систему');
-                        return;
-                    }
-                    const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
-                    if (userId === null) {
-                        alert('Для создания бронирования необходимо войти в систему');
-                        this.hide();
-                        return;
-                    }
                     const selectedDate = new Date(arg.start);
                     const now = new Date();
 
                     if (selectedDate < now) {
-                        showPastEventsModal(selectedDate);  // функция для просмотра прошедших событий
+                        alert('Нельзя создать бронирование в прошедшем времени');
+                        calendar.unselect();
                         return;
                     }
+
+                    const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
                     eventModal.show();
 
                     document.getElementById('id_start_time').value = formatDateForDjango(arg.start);
@@ -297,11 +331,8 @@
                     endTimePicker.setDate(arg.end, true);
 
                     calculateTimeAndCost();
-
                     calendar.unselect();
                 },
-
-
                 eventContent: function (arg) {
                     let title = arg.event.title;
                     if (!isAdmin && arg.event.extendedProps.user_id !== userId) {
@@ -310,46 +341,76 @@
 
                     return {
                         html: `
-                    <div>
-                        <b>${arg.timeText}</b>
-                        <i>${title} №${arg.event.extendedProps.table_number}</i>
-                    </div>
-                `
+                            <div>
+                                <b>${arg.timeText}</b>
+                                <i>${title} №${arg.event.extendedProps.table_number}</i>
+                            </div>
+                        `
                     };
                 },
-                // Event click logic
-                eventClick: function (info) {
-                    const event = info.event;
-                    document.getElementById('payExistingButton').setAttribute('data-event-id', event.id);
+                eventClick: function(info) {
+            const event = info.event;
+            const isPast = isPastEvent(event);
+            // Для прошедших событий показываем только информацию
+            if (isAdmin || event.extendedProps.user_id == userId) {
+    document.getElementById('delete-event-button').style.display = '';
+    document.getElementById('change-event').style.display = '';
+} else {
+    document.getElementById('delete-event-button').style.display = 'none';
+    document.getElementById('change-event').style.display = 'none';
+}
 
-                    // Populate detail modal with event information
+
+            if (isPastEvent(event)) {
+                // Заполняем модальное окно данными
+                document.getElementById('title_event_detail').textContent = event.title;
+                document.getElementById('description_event_detail').textContent = event.extendedProps.description;
+                document.getElementById('start_event_detail').textContent = formatDateTime(event.start);
+                document.getElementById('end_event_detail').textContent = formatDateTime(event.end);
+                document.getElementById('table_detail').textContent = event.extendedProps.table_number;
+                
+                // Скрываем все кнопки действий
+                document.querySelectorAll('#detailModal .btn').forEach(btn => {
+                    btn.style.display = 'none';
+                });
+                
+                const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+                detailModal.show();
+                return;
+            }
+
+                    // Заполняем модальное окно данными
                     document.getElementById('title_event_detail').textContent = event.title;
                     document.getElementById('description_event_detail').textContent = event.extendedProps.description;
                     document.getElementById('start_event_detail').textContent = formatDateTime(event.start);
                     document.getElementById('end_event_detail').textContent = formatDateTime(event.end);
                     document.getElementById('table_detail').textContent = event.extendedProps.table_number;
 
-                    // Set data attributes for action buttons
+                    // Устанавливаем ID события для кнопок
                     document.getElementById('delete-event-button').setAttribute('data-event-id', event.id);
                     document.getElementById('add-to-next-week').setAttribute('data-event-id-week', event.id);
                     document.getElementById('add-to-next-day').setAttribute('data-event-id-day', event.id);
                     document.getElementById('change-event').setAttribute('data-event-id-change', event.id);
+                    document.getElementById('payExistingButton').setAttribute('data-event-id', event.id);
+
+                    // Скрываем кнопки для прошедших событий
+                    const buttonsToHide = ['payExistingButton', 'change-event', 'add-to-next-week', 'add-to-next-day'];
+                    buttonsToHide.forEach(btnId => {
+                        const btn = document.getElementById(btnId);
+                        if (btn) btn.style.display = isPast ? 'none' : '';
+                    });
 
                     const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
                     detailModal.show();
 
-                    // Change event button click handler
+                    // Обработчик изменения события
                     document.getElementById('change-event').onclick = function () {
                         detailModal.hide();
                         openEditModal(event);
                     };
-                }
-                ,
-                {#editable: true,#}
-                dayMaxEvents:
-                    true,
-                events:
-                    {{ events|safe }},
+                },
+                dayMaxEvents: true,
+                events: {{ events|safe }},
             });
 
             calendar.setOption('locale', 'ru');

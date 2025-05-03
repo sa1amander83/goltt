@@ -51,15 +51,11 @@ class EventManager(models.Manager):
 
 
 class Tables(models.Model):
-    number = models.IntegerField(unique=True, choices=[
-        (1, 'Стол 1'),
-        (2, 'Стол 2'),
-        (3, 'Стол 3'),
-        (4, 'Стол 4'),
-    ])
+    number = models.IntegerField(unique=True)
     price_per_hour = models.DecimalField(max_digits=6, decimal_places=2, default=300, verbose_name='Цена за час')
     price_per_half_hour = models.DecimalField(max_digits=6, decimal_places=2, default=200, verbose_name='Цена за пол часа')
     table_description = models.CharField(blank=True, null=True, max_length=12, verbose_name='Описание стола')
+    is_active=models.BooleanField(default=True)
 
     def __str__(self):
         return f"Стол {self.number}"
@@ -144,26 +140,6 @@ class UserEventStats(EventAbstract):
         return str(self.user)
 
 
-class TempBooking(models.Model):
-    STATUS_CHOICES = [
-        ('pending', 'Ожидает оплаты'),
-        ('succeeded', 'Оплачено'),
-        ('canceled', 'Отменено'),
-    ]
-
-    title = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-    start_time = models.DateTimeField()
-    end_time = models.DateTimeField()
-    table = models.ForeignKey(Tables, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    payment_id = models.CharField(max_length=50, blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-created_at']
 
 
 # models.py
