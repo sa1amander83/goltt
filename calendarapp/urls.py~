@@ -21,7 +21,7 @@ urlpatterns = [
 
     path('change_event/<int:event_id>/', views.change_event, name='change_event'),
     path("event/<int:pk>/remove", views.EventMemberDeleteView.as_view(), name="remove_event"),
-    path('update_event/<int:pk>/', EventUpdateView.as_view(), name='event-update'),
+    path('api/events/<int:pk>/', EventUpdateView.as_view(), name='event-update'),
     path("all-event-list/", views.AllEventsListView.as_view(), name="all_events"),
     path("running-event-list/",views.RunningEventsListView.as_view(),name="running_events",),
     path("upcoming-event-list/",views.UpcomingEventsListView.as_view(),name="upcoming_events"),

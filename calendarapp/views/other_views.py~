@@ -630,7 +630,7 @@ class EventUpdateView(View):
                 'event': {
                     'id': event.id,
                     'title': event.title,
-                    'table_id': event.table_id,
+                    'table_id': event.table_number,
                     'start_time': event.start_time,
                     'end_time': event.end_time,
                     'total_time': event.total_time,

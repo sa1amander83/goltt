@@ -97,7 +97,7 @@
                                 <i class="fa fa-save"></i> Сохранить
                             </button>
                             <a href="{% url 'calendarapp:all_settings' %}" class="btn btn-secondary">
-                                <i class="fa fa-times"></i> Отмена
+                                <i class="fas fa-times"></i> Отмена
                             </a>
                         </div>
                     </form>

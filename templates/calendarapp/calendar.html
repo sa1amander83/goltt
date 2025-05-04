@@ -6,7 +6,35 @@
     <link href="{% static 'calender/main.css' %}" rel="stylesheet"/>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Цвета событий */
+        .fc-event-user {
+            background-color: #28a745 !important; /* Зеленый для своих броней */
+            border-color: #218838 !important;
+        }
 
+        .fc-event-other {
+            background-color: #6c757d !important; /* Серый для чужих броней */
+            border-color: #5a6268 !important;
+        }
+
+        .fc-event-admin-view {
+            background-color: #17a2b8 !important; /* Голубой для админа (просмотр всех) */
+            border-color: #138496 !important;
+        }
+
+        .fc-past-event {
+            background-color: #6a6d70 !important;
+            border-color: #535354 !important;
+            color: #cfcfcf !important;
+            opacity: 0.7;
+        }
+
+        .fc-daygrid-day-number {
+            color: #0066cc;
+            text-decoration: none;
+        }
+    </style>
 {% endblock extracss %}
 
 {% block breadcrumb %}
@@ -194,416 +222,21 @@
             </div>
         </div>
     </div>
-    
+
 {% endblock content %}
+
 {% block extrascripts %}
-
-<style>
-    .fc-past-event {
-    background-color: #6a6d70 !important;
-    border-color: #535354 !important;
-    color: #cfcfcf !important;
-    text-decoration-color: #cfcfcf !important;
-    opacity: 0.7;
-}
-
-.fc-past-event:hover {
-    background-color: #e9ecef !important;
-}
-</style>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="{% static 'calender/main.js' %}"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{% static 'js/ru.js' %}"></script>
     <script>
-        const isAdmin = {{ is_admin|yesno:"true,false" }};
-        const userId = {{ user_id|default:"null" }};
+        const isAdmin = {{ request.user.is_superuser|yesno:"true,false" }};
+        const userId = {{ request.user.id|default:"null" }};
+        const isAuthenticated = {{ request.user.is_authenticated|yesno:"true,false" }};
+        const maxBookingHours = 3;
+        let calendar; // Делаем календарь глобальной переменной для доступа из функций
 
-        function formatDateTime(dateTime) {
-            return new Date(dateTime).toLocaleString('ru-RU', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                timeZoneName: 'short'
-            });
-        }
-
-        function formatDateForDjango(date) {
-            const d = new Date(date);
-            return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')} ` +
-                `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:00`;
-        }
-
-        function isPastEvent(event) {
-            return new Date(event.end) < new Date();
-        }
-
-        document.addEventListener('DOMContentLoaded', function () {
-            const calendarEl = document.getElementById('calendar');
-            const today = new Date();
-            
-            const calendar = new FullCalendar.Calendar(calendarEl, {
-                headerToolbar: {
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: 'dayGridMonth,timeGridWeek,timeGridDay,list'
-                },
-                buttonText: {
-                    today: 'Сегодня',
-                    month: 'Месяц',
-                    week: 'Неделя',
-                    day: 'День',
-                    list: 'Список'
-                },
-                locale: 'ru',
-                slotDuration: '00:30:00',
-                slotLabelInterval: '00:30',
-                slotMinTime: '08:00:00',
-                slotMaxTime: '24:00:00',
-                initialDate: today,
-                editable:false,
-                navLinks: true,
-                selectable: userId !== null,
-                editable: function(event) {
-                    // Разрешаем редактирование только для будущих событий и только админу
-                    if (!event) return isAdmin;
-                    return (isAdmin || event.extendedProps.user_id == userId) && !isPastEvent(event);
-                },
-                selectMirror: true,
-                eventDrop: function(info) {
-    if (!isAdmin && info.event.extendedProps.user_id != userId) {
-        info.revert();
-        alert('Вы можете изменять только свои бронирования');
-    }
-},
-
-eventResize: function(info) {
-    if (!isAdmin && info.event.extendedProps.user_id != userId) {
-        info.revert();
-        alert('Вы можете изменять только свои бронирования');
-    }
-},
-
-                 isPastEvent:function(event) {
-        return new Date(event.end) < today;
-    },
-                eventDidMount: function(info) {
-            if (isPastEvent(info.event)) {
-                // Добавляем класс для стилизации
-                info.el.classList.add('fc-past-event');
-                
-                // Делаем курсор "недоступным"
-                info.el.style.cursor = 'not-allowed';
-            }
-        },
-                dayCellDidMount: function (info) {
-                    if (info.date.toDateString() === new Date().toDateString()) {
-                        info.el.classList.add('fc-today');
-                    }
-                },
-                select: function (arg) {
-                    if (userId === null) {
-                        alert('Для создания бронирования необходимо войти в систему');
-                        return;
-                    }
-
-                    const selectedDate = new Date(arg.start);
-                    const now = new Date();
-
-                    if (selectedDate < now) {
-                        alert('Нельзя создать бронирование в прошедшем времени');
-                        calendar.unselect();
-                        return;
-                    }
-
-                    const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
-                    eventModal.show();
-
-                    document.getElementById('id_start_time').value = formatDateForDjango(arg.start);
-                    document.getElementById('id_end_time').value = formatDateForDjango(arg.end);
-
-                    startTimePicker.setDate(arg.start, true);
-                    endTimePicker.setDate(arg.end, true);
-
-                    calculateTimeAndCost();
-                    calendar.unselect();
-                },
-                eventContent: function (arg) {
-                    let title = arg.event.title;
-                    if (!isAdmin && arg.event.extendedProps.user_id !== userId) {
-                        title = "Стол";
-                    }
-
-                    return {
-                        html: `
-                            <div>
-                                <b>${arg.timeText}</b>
-                                <i>${title} №${arg.event.extendedProps.table_number}</i>
-                            </div>
-                        `
-                    };
-                },
-                eventClick: function(info) {
-            const event = info.event;
-            const isPast = isPastEvent(event);
-            // Для прошедших событий показываем только информацию
-            if (isAdmin || event.extendedProps.user_id == userId) {
-    document.getElementById('delete-event-button').style.display = '';
-    document.getElementById('change-event').style.display = '';
-} else {
-    document.getElementById('delete-event-button').style.display = 'none';
-    document.getElementById('change-event').style.display = 'none';
-}
-
-
-            if (isPastEvent(event)) {
-                // Заполняем модальное окно данными
-                document.getElementById('title_event_detail').textContent = event.title;
-                document.getElementById('description_event_detail').textContent = event.extendedProps.description;
-                document.getElementById('start_event_detail').textContent = formatDateTime(event.start);
-                document.getElementById('end_event_detail').textContent = formatDateTime(event.end);
-                document.getElementById('table_detail').textContent = event.extendedProps.table_number;
-                
-                // Скрываем все кнопки действий
-                document.querySelectorAll('#detailModal .btn').forEach(btn => {
-                    btn.style.display = 'none';
-                });
-                
-                const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
-                detailModal.show();
-                return;
-            }
-
-                    // Заполняем модальное окно данными
-                    document.getElementById('title_event_detail').textContent = event.title;
-                    document.getElementById('description_event_detail').textContent = event.extendedProps.description;
-                    document.getElementById('start_event_detail').textContent = formatDateTime(event.start);
-                    document.getElementById('end_event_detail').textContent = formatDateTime(event.end);
-                    document.getElementById('table_detail').textContent = event.extendedProps.table_number;
-
-                    // Устанавливаем ID события для кнопок
-                    document.getElementById('delete-event-button').setAttribute('data-event-id', event.id);
-                    document.getElementById('add-to-next-week').setAttribute('data-event-id-week', event.id);
-                    document.getElementById('add-to-next-day').setAttribute('data-event-id-day', event.id);
-                    document.getElementById('change-event').setAttribute('data-event-id-change', event.id);
-                    document.getElementById('payExistingButton').setAttribute('data-event-id', event.id);
-
-                    // Скрываем кнопки для прошедших событий
-                    const buttonsToHide = ['payExistingButton', 'change-event', 'add-to-next-week', 'add-to-next-day'];
-                    buttonsToHide.forEach(btnId => {
-                        const btn = document.getElementById(btnId);
-                        if (btn) btn.style.display = isPast ? 'none' : '';
-                    });
-
-                    const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
-                    detailModal.show();
-
-                    // Обработчик изменения события
-                    document.getElementById('change-event').onclick = function () {
-                        detailModal.hide();
-                        openEditModal(event);
-                    };
-                },
-                dayMaxEvents: true,
-                events: {{ events|safe }},
-            });
-
-            calendar.setOption('locale', 'ru');
-            calendar.render();
-
-            // Modal close buttons event listeners
-            document.getElementById('modalClose1').addEventListener('click', () => {
-                const eventModal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
-                if (eventModal) {
-                    eventModal.hide();
-                }
-            });
-
-            document.getElementById('modalClose2').addEventListener('click', () => {
-                const eventModal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
-                if (eventModal) {
-                    eventModal.hide();
-                }
-            });
-            document.getElementById('modalDetailClose').addEventListener('click', () => {
-                const detailModal = bootstrap.Modal.getInstance(document.getElementById('detailModal'));
-                if (detailModal) {
-                    detailModal.hide();
-                }
-            });
-
-            // Delete event button click handler
-            document.getElementById('delete-event-button').addEventListener('click', function () {
-                    const eventId = this.getAttribute('data-event-id');
-                    if (confirm('Хотите удалить событие?')) {
-                        $.ajax({
-                            url: `/delete_event/${eventId}/`,
-                            type: 'POST',
-                            data: {
-                                csrfmiddlewaretoken: '{{ csrf_token }}',
-                            },
-                            success: function (response) {
-                                alert(response.message);
-                                calendar.refetchEvents();
-                                window.location.reload();// Refresh events after deletion
-                            },
-                            error: function (xhr, status, error) {
-                                alert('Ошибка удаления!');
-                                window.location.reload();
-                            }
-                        });
-
-
-                    }
-
-                }
-            );
-
-            // Add to next week button click handler
-            document.getElementById('add-to-next-week').addEventListener('click', function () {
-                const eventId = this.getAttribute('data-event-id-week');
-                if (confirm('Хотите добавить событие на следующую неделю?')) {
-                    $.ajax({
-                        url: `/next_week/${eventId}/`,
-                        type: 'POST',
-                        data: {
-                            csrfmiddlewaretoken: '{{ csrf_token }}',
-                        },
-                        success: function (response) {
-                            alert(response.message);
-                            calendar.refetchEvents(); // Refresh events after adding to next week
-                            window.location.reload();
-                        },
-                        error: function (xhr, status, error) {
-                            alert('Ошибка!');
-                        }
-                    });
-                }
-            });
-
-            // Add to next day button click handler
-            document.getElementById('add-to-next-day').addEventListener('click', function () {
-                const eventId = this.getAttribute('data-event-id-day');
-                if (confirm('Хотите добавить событие на следующий день?')) {
-                    $.ajax({
-                        url: `/next_day/${eventId}/`,
-                        type: 'POST',
-                        data: {
-                            csrfmiddlewaretoken: '{{ csrf_token }}',
-                        },
-                        success: function (response) {
-                            alert(response.message);
-                            calendar.refetchEvents(); // Refresh events after adding to next day
-                            window.location.reload();
-                        },
-                        error: function (xhr, status, error) {
-                            alert('Ошибка!');
-                        }
-                    });
-                }
-            });
-
-            // Change event button click handler
-            function openEditModal(event) {
-                const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
-
-                // Заполнение формы данными события
-                document.getElementById('id_title').value = event.title;
-                document.getElementById('id_description').value = event.extendedProps.description;
-                document.getElementById('id_table').value = event.extendedProps.table_number;
-                document.getElementById('id_start_time').value = formatDateForDjango(event.start);
-                document.getElementById('id_end_time').value = formatDateForDjango(event.end);
-
-                // Установка времени в flatpickr
-                startTimePicker.setDate(event.start, true);
-                endTimePicker.setDate(event.end, true);
-
-                // Пересчет времени и стоимости
-                calculateTimeAndCost();
-
-                // Показ модального окна
-                eventModal.show();
-
-                // Обработчик отправки формы
-                document.querySelector('#eventModal form').onsubmit = function (e) {
-                    e.preventDefault();
-
-                    const formData = new FormData(this);
-                    const eventId = event.id;
-
-                    $.ajax({
-                        url: `/change_event/${eventId}/`,
-                        type: 'POST',
-                        data: formData,
-                        processData: false,
-                        contentType: false,
-                        headers: {
-                            'X-CSRFToken': getCookie('csrftoken') // Добавление CSRF-токена
-                        },
-                        success: function (response) {
-                            alert(response.message);
-                            eventModal.hide();
-                            calendar.refetchEvents(); // Обновление событий после изменения
-                        },
-                        error: function (xhr) {
-                            alert('Ошибка при сохранении изменений!');
-                            console.error(xhr.responseText);
-                        }
-                    });
-                };
-            }
-
-            document.getElementById('change-event').onclick = function () {
-                const eventId = this.getAttribute('data-event-id-change');
-                if (!eventId) {
-                    console.error('Event ID is missing!');
-                    return;
-                }
-
-                // Получение данных события для редактирования
-                $.ajax({
-                    url: `/change_event/${eventId}/`,
-                    type: 'GET',
-                    success: function (response) {
-                        console.log("Полученные данные:", response);
-
-                        // Открытие модального окна для редактирования
-                        openEditModal({
-                            id: eventId,
-                            title: response.title,
-                            description: response.description,
-                            table_number: response.table_id,
-                            start: new Date(response.start_time),
-                            end: new Date(response.end_time)
-                        });
-                    },
-                    error: function (xhr) {
-                        alert('Ошибка при получении данных события!');
-                        console.error(xhr.responseText);
-                    }
-                });
-            };
-
-            // Helper function to get CSRF-token
-            function getCookie(name) {
-                const cookies = document.cookie.split(';');
-                for (let cookie of cookies) {
-                    cookie = cookie.trim();
-                    if (cookie.startsWith(name + '=')) {
-                        return cookie.substring(name.length + 1);
-                    }
-                }
-                return null;
-            }
-        })
-        ;
-
-        // Flatpickr settings
+        // Инициализация flatpickr
         const startTimePicker = flatpickr("#id_start_time", {
             enableTime: true,
             dateFormat: "Y-m-d H:i",
@@ -622,250 +255,515 @@ eventResize: function(info) {
             onChange: calculateTimeAndCost
         });
 
-        // Calculate time and cost function
+        document.addEventListener('DOMContentLoaded', function () {
+            const calendarEl = document.getElementById('calendar');
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay,list'
+                },
+                buttonText: {
+                    today: 'Сегодня',
+                    month: 'Месяц',
+                    week: 'Неделя',
+                    day: 'День',
+                    list: 'Список'
+                },
+                locale: 'ru',
+                initialView: 'dayGridMonth',
+                navLinks: true,
+                navLinkDayClick: function (date, jsEvent) {
+                    calendar.changeView('timeGridDay', date);
+                },
+                selectable: isAuthenticated,
+                selectMirror: true,
+                editable: isAdmin,
+                eventStartEditable: isAdmin,
+                eventDurationEditable: isAdmin,
+                eventResizableFromStart: isAdmin,
+                eventClassNames: function (arg) {
+                    const classes = [];
+                    if (isPastEvent(arg.event)) classes.push('fc-past-event');
+
+                    if (isAdmin) {
+                        classes.push('fc-event-admin-view');
+                    } else if (arg.event.extendedProps.user_id == userId) {
+                        classes.push('fc-event-user');
+                    } else {
+                        classes.push('fc-event-other');
+                    }
+                    return classes;
+                },
+                eventContent: function (arg) {
+                    let title = arg.event.title;
+                    if (!isAdmin && arg.event.extendedProps.user_id !== userId) {
+                        title = "Занят";
+                    }
+                    return {
+                        html: `<div><b>${arg.timeText}</b><i>${title} №${arg.event.extendedProps.table_number}</i></div>`
+                    };
+                },
+                select: function (arg) {
+                    if (!isAuthenticated) {
+                        alert('Для бронирования необходимо войти в систему');
+                        calendar.unselect();
+                        return;
+                    }
+
+                    const selectedDate = new Date(arg.start);
+                    if (selectedDate < new Date()) {
+                        alert('Нельзя создать бронирование в прошедшем времени');
+                        calendar.unselect();
+                        return;
+                    }
+
+                    openBookingModal(arg.start, arg.end);
+                    calendar.unselect();
+                },
+                eventClick: function (info) {
+                    const event = info.event;
+                    const isOwner = event.extendedProps.user_id == userId;
+
+                    // Заполняем модальное окно данными о событии
+                    document.getElementById('title_event_detail').textContent = event.title;
+                    document.getElementById('description_event_detail').textContent = event.extendedProps.description || 'Нет описания';
+                    document.getElementById('start_event_detail').textContent = formatDateTime(event.start);
+                    document.getElementById('end_event_detail').textContent = formatDateTime(event.end);
+                    document.getElementById('table_detail').textContent = event.extendedProps.table_number;
+
+                    // Устанавливаем ID события для кнопок
+                    document.getElementById('delete-event-button').setAttribute('data-event-id', event.id);
+                    document.getElementById('change-event').setAttribute('data-event-id-change', event.id);
+                    document.getElementById('payExistingButton').setAttribute('data-event-id', event.id);
+
+                    // Показываем/скрываем кнопки в зависимости от прав
+                    document.getElementById('delete-event-button').style.display = isAdmin ? '' : 'none';
+                    document.getElementById('change-event').style.display = isAdmin ? '' : 'none';
+                    document.getElementById('payExistingButton').style.display = (isOwner && !isPastEvent(event)) ? '' : 'none';
+
+                    // Показываем модальное окно
+                    const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+                    detailModal.show();
+                },
+                eventDrop: function (info) {
+                    if (!isAdmin) {
+                        info.revert();
+                        alert('Только администратор может изменять бронирования');
+                        return;
+                    }
+                    updateEventOnServer(info);
+                },
+                eventResize: function (info) {
+                    if (!isAdmin) {
+                        info.revert();
+                        alert('Только администратор может изменять бронирования');
+                        return;
+                    }
+                    updateEventOnServer(info);
+                },
+                events: {{ events|safe }}
+            });
+
+            calendar.render();
+            setupEventHandlers();
+        });
+
+        function setupEventHandlers() {
+            // Закрытие модальных окон
+            document.getElementById('modalClose1')?.addEventListener('click', () => {
+                bootstrap.Modal.getInstance(document.getElementById('eventModal'))?.hide();
+            });
+            document.getElementById('modalClose2')?.addEventListener('click', () => {
+                bootstrap.Modal.getInstance(document.getElementById('eventModal'))?.hide();
+            });
+            document.getElementById('modalDetailClose')?.addEventListener('click', () => {
+                bootstrap.Modal.getInstance(document.getElementById('detailModal'))?.hide();
+            });
+
+            // Удаление события
+            document.getElementById('delete-event-button')?.addEventListener('click', function () {
+                const eventId = this.getAttribute('data-event-id');
+                if (confirm('Вы уверены, что хотите удалить это бронирование?')) {
+                    fetch(`/delete_event/${eventId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}',
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        }
+                    })
+                        .then(response => {
+                            if (response.ok) {
+                                calendar.refetchEvents();
+                                bootstrap.Modal.getInstance(document.getElementById('detailModal'))?.hide();
+                            } else {
+                                throw new Error('Ошибка удаления');
+                            }
+                        })
+                        .catch(error => {
+                            alert('Ошибка при удалении: ' + error.message);
+                        });
+                }
+            });
+            // Обработчик кнопки "Следующая неделя"
+            document.getElementById('add-to-next-week')?.addEventListener('click', function () {
+                const eventId = this.getAttribute('data-event-id-week');
+                if (!eventId) return;
+
+                if (confirm('Хотите добавить событие на следующую неделю?')) {
+                    fetch(`/next_week/${eventId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-CSRFToken': csrftoken
+                        },
+                        body: `csrfmiddlewaretoken=${encodeURIComponent(csrftoken)}`
+                    })
+                        .then(response => {
+                            if (!response.ok) throw new Error('Ошибка сервера');
+                            return response.json();
+                        })
+                        .then(data => {
+                            alert(data.message || 'Событие добавлено на следующую неделю');
+                            calendar.refetchEvents();
+                        })
+                        .catch(error => {
+                            console.error('Ошибка:', error);
+                            alert('Ошибка при добавлении события: ' + error.message);
+                        });
+                }
+            });
+
+// Обработчик кнопки "Завтра"
+            document.getElementById('add-to-next-day')?.addEventListener('click', function () {
+                const eventId = this.getAttribute('data-event-id-day');
+                if (!eventId) return;
+
+                if (confirm('Хотите добавить событие на следующий день?')) {
+                    fetch(`/next_day/${eventId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-CSRFToken': csrftoken
+                        },
+                        body: `csrfmiddlewaretoken=${encodeURIComponent(csrftoken)}`
+                    })
+                        .then(response => {
+                            if (!response.ok) throw new Error('Ошибка сервера');
+                            return response.json();
+                        })
+                        .then(data => {
+                            alert(data.message || 'Событие добавлено на завтра');
+                            calendar.refetchEvents();
+                        })
+                        .catch(error => {
+                            console.error('Ошибка:', error);
+                            alert('Ошибка при добавлении события: ' + error.message);
+                        });
+                }
+            });
+            // Изменение события
+            document.getElementById('change-event')?.addEventListener('click', function () {
+                const eventId = this.getAttribute('data-event-id-change');
+                const event = calendar.getEventById(eventId);
+
+                if (!isAdmin) {
+                    alert('Только администратор может изменять бронирования');
+                    return;
+                }
+
+                document.getElementById('id_title').value = event.title;
+                document.getElementById('id_description').value = event.extendedProps.description || '';
+                document.getElementById('id_table').value = event.extendedProps.table_id;
+                document.getElementById('id_start_time').value = formatDateForDjango(event.start);
+                document.getElementById('id_end_time').value = formatDateForDjango(event.end);
+
+                startTimePicker.setDate(event.start, true);
+                endTimePicker.setDate(event.end, true);
+                calculateTimeAndCost();
+
+                bootstrap.Modal.getInstance(document.getElementById('detailModal'))?.hide();
+                const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
+                eventModal.show();
+
+                document.querySelector('#eventModal form').onsubmit = function (e) {
+                    e.preventDefault();
+                    submitEventForm(eventId, eventModal);
+                };
+            });
+
+            // Оплата
+            document.getElementById('payNewButton')?.addEventListener('click', processNewPayment);
+            document.getElementById('payExistingButton')?.addEventListener('click', function () {
+                processExistingPayment(this.getAttribute('data-event-id'));
+            });
+        }
+
+        function fillEventDetailsModal(event) {
+            const setContent = (id, value) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = value || 'Не указано';
+            };
+
+            setContent('title_event_detail', event.title);
+            setContent('description_event_detail', event.extendedProps.description);
+            setContent('start_event_detail', formatDateTime(event.start));
+            setContent('end_event_detail', formatDateTime(event.end));
+            setContent('table_detail', event.extendedProps.table_number);
+
+            // Установка ID для кнопок
+            const setAttr = (id, attr, value) => {
+                const el = document.getElementById(id);
+                if (el) el.setAttribute(attr, value);
+            };
+
+            setAttr('delete-event-button', 'data-event-id', event.id);
+            setAttr('change-event', 'data-event-id-change', event.id);
+            setAttr('payExistingButton', 'data-event-id', event.id);
+        }
+
+        function manageActionButtons(event, isOwner, isPast) {
+            const buttons = {
+                'delete-event-button': isAdmin,
+                'change-event': isAdmin,
+                'payExistingButton': isOwner && !isPast,
+                'add-to-next-week': isAdmin,
+                'add-to-next-day': isAdmin
+            };
+
+            Object.entries(buttons).forEach(([id, show]) => {
+                const btn = document.getElementById(id);
+                if (btn) btn.style.display = show ? '' : 'none';
+            });
+        }
+
+        function openBookingModal(start, end) {
+            document.getElementById('id_start_time').value = formatDateForDjango(start);
+            document.getElementById('id_end_time').value = formatDateForDjango(end);
+
+            startTimePicker.setDate(start, true);
+            endTimePicker.setDate(end, true);
+
+            calculateTimeAndCost();
+            new bootstrap.Modal(document.getElementById('eventModal')).show();
+        }
+
         function calculateTimeAndCost() {
             const startTime = startTimePicker.selectedDates[0];
             const endTime = endTimePicker.selectedDates[0];
+            const tableSelect = document.getElementById('id_table');
 
-            if (!startTime || !endTime) return;
+            if (!startTime || !endTime || !tableSelect) return;
 
             const diffMs = endTime - startTime;
-            const diffHours = diffMs / (1000 * 60 * 60);
+            const diffHours = diffMs / (3600 * 1000);
             const roundedHours = Math.round(diffHours * 2) / 2;
-            // Проверка максимальной продолжительности
-            if (diffHours > 3 && !isAdmin) {
-                alert('Максимальная продолжительность бронирования - 3 часа');
-                endTimePicker.setDate(new Date(startTime.getTime() + 3 * 60 * 60 * 1000), true);
+
+            if (!isAdmin && diffHours > maxBookingHours) {
+                alert(`Максимальная продолжительность бронирования - ${maxBookingHours} часа`);
+                endTimePicker.setDate(new Date(startTime.getTime() + maxBookingHours * 3600 * 1000));
                 return;
             }
-            const tableSelect = document.getElementById('id_table');
+
             const selectedOption = tableSelect.options[tableSelect.selectedIndex];
-            const pricePerHour = parseFloat(selectedOption.getAttribute('data-price-hour')) || 0;
-            const pricePerHalfHour = parseFloat(selectedOption.getAttribute('data-price-half-hour')) || 0;
+            const pricePerHour = parseFloat(selectedOption?.getAttribute('data-price-hour') || 0);
+            const totalCost = roundedHours * pricePerHour;
 
-            const totalCost = Math.floor(roundedHours) * pricePerHour +
-                (roundedHours % 1 !== 0 ? pricePerHalfHour : 0);
-
-            document.getElementById('total-time-display').textContent = `${roundedHours}`;
+            document.getElementById('total-time-display').textContent = roundedHours;
             document.getElementById('total-cost-display').textContent = `${totalCost.toFixed(2)} руб.`;
-
             document.getElementById('total-time').value = roundedHours;
-            document.getElementById('total-cost').value = parseInt(totalCost);
+            document.getElementById('total-cost').value = totalCost.toFixed(2);
         }
 
-
-        // Save selected time when opening the modal
-        document.getElementById('eventModal').addEventListener('shown.bs.modal', function () {
-            const isAdmin = {{ is_admin|yesno:"true,false" }};
-
-            fetch('/api/user_events_count/')  // Нужно создать соответствующий API endpoint
-                .then(response => response.json())
-                .then(data => {
-                    if (data.count >= 3 && !isAdmin) {
-                        alert('Вы уже имеете максимальное количество бронирований (3)');
-                        this.hide();
-                    }
-                });
-
-
-            if (!startTimePicker.selectedDates[0]) {
-                let today = new Date();
-                today.setHours(0, 0, 0, 0);  // Set to midnight
-                startTimePicker.setDate(today, true);
-            }
-
-            if (!endTimePicker.selectedDates[0]) {
-                let today = new Date();
-                today.setHours(0, 30, 0, 0);  // Set to 00:30
-                endTimePicker.setDate(today, true);
-            }
-            calculateTimeAndCost();
-        });
-
-        function checkBeforeEventModal(actionCallback) {
-            if (userId === null) {
-                alert('Для создания бронирования необходимо войти в систему');
-                return;
-            }
-
-            if (isAdmin) {
-                actionCallback();
-                return;
-            }
-
-            fetch('/api/user_events_count/')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.count >= data.max_events) {
-                        alert(`Вы уже имеете максимальное количество бронирований (${data.max_events})`);
-                    } else {
-                        actionCallback();
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    actionCallback();
-                });
-        }
-
-        // Обработчик для кнопки "Оплатить" в модальном окне создания
-        document.getElementById('payButton')?.addEventListener('click', function () {
-            const form = document.querySelector('#eventModal form');
-            const formData = new FormData(form);
-
-            // Показываем индикатор загрузки
-            this.disabled = true;
-            const originalText = this.innerHTML;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Обработка...';
-
-            fetch('/create_yookassa_payment/', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': '{{ csrf_token }}'
-                }
-            })
-                .then(response => {
-                    if (!response.ok) throw new Error('Network error');
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.confirmation_url) {
-                        window.location.href = data.confirmation_url;
-                    } else {
-                        throw new Error(data.error || 'Unknown error');
-                    }
-                })
-                .catch(error => {
-                    console.error('Payment error:', error);
-                    alert('Ошибка при создании платежа: ' + error.message);
-                })
-                .finally(() => {
-                    this.disabled = false;
-                    this.innerHTML = originalText;
-                });
-        });
-
-        // Обработчик для кнопки "Оплатить" в модальном окне деталей
-        document.getElementById('payExistingButton')?.addEventListener('click', function () {
-            const eventId = this.getAttribute('data-event-id');
-            if (!eventId) return;
-
-            // Показываем индикатор загрузки
-            this.disabled = true;
-            const originalText = this.innerHTML;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Обработка...';
-
-            fetch(`/pay_booking/${eventId}/`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': '{{ csrf_token }}',
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                }
-            })
-                .then(response => {
-                    if (!response.ok) throw new Error('Network error');
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.confirmation_url) {
-                        window.location.href = data.confirmation_url;
-                    } else {
-                        throw new Error(data.error || 'Unknown error');
-                    }
-                })
-                .catch(error => {
-                    console.error('Payment error:', error);
-                    alert('Ошибка при создании платежа: ' + error.message);
-                })
-                .finally(() => {
-                    this.disabled = false;
-                    this.innerHTML = originalText;
-                });
-        });
-
-
-     
-// Обработчик для новой брони
-        document.getElementById('payNewButton')?.addEventListener('click', function () {
-            processNewPayment();
-        });
-
-        // Обработчик для существующей брони
-        // Измените обработчик кнопки в detailModal
-        document.getElementById('payExistingButton')?.addEventListener('click', function () {
-            const eventId = this.getAttribute('data-event-id');
-            if (!eventId) return;
-
-            this.disabled = true;
-            const originalText = this.textContent;
-            this.textContent = 'Перенаправление...';
-
-            // Используем форму вместо fetch для избежания CORS
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = `/pay_booking/${eventId}/`;
-            form.style.display = 'none';
-
-            const csrfInput = document.createElement('input');
-            csrfInput.type = 'hidden';
-            csrfInput.name = 'csrfmiddlewaretoken';
-            csrfInput.value = '{{ csrf_token }}';
-            form.appendChild(csrfInput);
-
-            document.body.appendChild(form);
-            form.submit();
-        });
-
-        // Функция для обработки новой брони
-        function processNewPayment() {
+        function submitEventForm(eventId, modal) {
             const formData = new FormData(document.querySelector('#eventModal form'));
 
-            fetch('/create_yookassa_payment/', {
+            fetch(`/change_event/${eventId}/`, {
                 method: 'POST',
                 body: formData,
-                headers: {
-                    'X-CSRFToken': '{{ csrf_token }}'
-                }
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.confirmation_url) {
-                        window.location.href = data.confirmation_url;
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Ошибка при создании платежа');
-                });
-        }
-
-        // Функция для обработки существующей брони
-        function processExistingPayment(eventId) {
-            fetch(`/pay_booking/${eventId}/`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': '{{ csrf_token }}',
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
+                headers: {'X-CSRFToken': '{{ csrf_token }}'}
             })
                 .then(response => {
-                    if (response.redirected) {
-                        window.location.href = response.url;
+                    if (response.ok) {
+                        modal.hide();
+                        calendar.refetchEvents();
                     } else {
-                        return response.json();
+                        throw new Error('Ошибка сохранения');
                     }
-                })
-                .then(data => {
-                    if (data?.error) throw new Error(data.error);
                 })
                 .catch(error => {
                     alert('Ошибка: ' + error.message);
                 });
         }
 
-        
-        
 
+        function processNewPayment() {
+            const form = document.querySelector('#eventModal form');
+            const formData = new FormData(form);
+
+            fetch('/create_yookassa_payment/', {
+                method: 'POST',
+                body: formData,
+                headers: {'X-CSRFToken': '{{ csrf_token }}'}
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.confirmation_url) {
+                        window.location.href = data.confirmation_url;
+                    } else {
+                        throw new Error(data.error || 'Ошибка платежа');
+                    }
+                })
+                .catch(error => {
+                    alert('Ошибка: ' + error.message);
+                });
+        }
+
+        function processExistingPayment(eventId) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/pay_booking/${eventId}/`;
+
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = '{{ csrf_token }}';
+
+            form.appendChild(csrfInput);
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        function isPastEvent(event) {
+            return new Date(event.end) < new Date();
+        }
+
+        function formatDateTime(date) {
+            return new Date(date).toLocaleString('ru-RU', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function formatDateForDjango(date) {
+            const d = new Date(date);
+            return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')} ` +
+                `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:00`;
+        }
+
+
+        function updateEventOnServer(info) {
+            const event = info.event;
+
+            // Получаем полную версию события из календаря
+            const fullEvent = calendar.getEventById(event.id);
+            if (!fullEvent) {
+                info.revert();
+                alert('Ошибка: событие не найдено');
+                return;
+            }
+            console.log('fullEvent.extendedProps', fullEvent.extendedProps);
+            // Проверяем наличие обязательных данных
+            if (!fullEvent.start || !fullEvent.end) {
+                info.revert();
+                alert('Ошибка: отсутствуют даты начала или окончания');
+                return;
+            }
+
+            const table_number = fullEvent.extendedProps.table_number;
+            if (!table_number) {
+                info.revert();
+                alert('Ошибка: не указан стол для бронирования');
+                return;
+            }
+
+            // Рассчитываем продолжительность
+            const durationMs = new Date(fullEvent.end) - new Date(fullEvent.start);
+            const durationHours = Math.round((durationMs / (1000 * 60 * 60)) * 10) / 10;
+
+            // Получаем цену стола
+            const tablePrice = parseFloat(fullEvent.extendedProps.table_price_per_hour) ||
+                parseFloat(document.querySelector(`#id_table option[value="${table_number}"]`)?.dataset.priceHour) || 0;
+            const totalCost = durationHours * tablePrice;
+
+            // Формируем данные для отправки
+            const formData = new FormData();
+            formData.append('id', fullEvent.id);
+            formData.append('title', fullEvent.title || 'Бронирование');
+            formData.append('description', fullEvent.extendedProps.description || '');
+            formData.append('table_number', table_number);
+            formData.append('start_time', formatDateForDjango(fullEvent.start));
+            formData.append('end_time', formatDateForDjango(fullEvent.end));
+            formData.append('total_time', durationHours);
+            formData.append('total_cost', totalCost.toFixed(2));
+            formData.append('csrfmiddlewaretoken', csrftoken);
+            console.log('Отправляемые данные:', {
+                id: fullEvent.id,
+                title: fullEvent.title,
+                table: table_number,
+                start: fullEvent.start,
+                end: fullEvent.end,
+                duration: durationHours,
+                cost: totalCost
+            });
+            // Отправляем запрос
+            fetch(`/update_event/${fullEvent.id}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrftoken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+                .then(async response => {
+                    if (!response.ok) {
+                        let errorText = await response.text();
+                        // Пытаемся извлечь JSON-ошибку, если есть
+                        try {
+                            const errorJson = JSON.parse(errorText);
+                            throw new Error(errorJson.message || errorJson.error || 'Ошибка сервера');
+                        } catch {
+                            throw new Error(errorText.split('\n')[0]);
+                        }
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Обновляем extendedProps в календаре
+                        fullEvent.setExtendedProp('total_time', data.event.total_time);
+                        fullEvent.setExtendedProp('total_cost', data.event.total_cost);
+                        console.log('Бронирование обновлено:', data.event);
+                    } else {
+                        throw new Error(data.message || 'Неизвестная ошибка');
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка обновления:', error);
+                    info.revert();
+                    alert('Ошибка: ' + error.message);
+                });
+        }
+
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        const csrftoken = getCookie('csrftoken');
     </script>
-{% endblock %}
+{% endblock extrascripts %}
